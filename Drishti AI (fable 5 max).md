@@ -26,6 +26,7 @@ Six decisions drive everything else in this dossier:
 4. **MVP model stack (all runnable in 48–72 h):** person detection (YOLO11-s or RT-DETR) → pose (RTMPose-m via ONNX) → ByteTrack + custom seat-anchor layer → head-yaw (keypoint geometry everywhere; 6DRepNet face crops in near rows) → rule-based temporal event engine → seat-graph pairwise correlator → evidence fusion + abstention → FastAPI/WebSocket → React dashboard. Learned temporal models (ST-GCN/PoseC3D) are a competition-phase upgrade, not an MVP requirement.
 5. **Refuse to promise the physically impossible.** On 1080p at typical hall distances, eye gaze is not recoverable, a 7 cm paper chit beyond ~4 m is below reliable detection size, and earpieces are effectively invisible (pixel math in §4/§12) **[Inferred, arithmetic shown]**. VIGIL reframes chit detection as hand-behaviour + close-range object candidates, and says "insufficient visibility" instead of guessing. Judges reward this honesty; competitors overclaim.
 6. **Never accuse; always route to a human.** Every output is a "behavioural review request" with evidence, confidence, visibility quality and a counterfactual ("what would NOT have triggered this"). This satisfies mandatory objectives 18–20 and is the correct DPDP-era posture (§23).
+7. **[NEW — 18 July 2026 research update] The perception wedge is the Drishti Attention Field (§13A).** Stop thinking in head-yaw *angles*; use scene-level **gaze-target estimation** — Gaze-LLE (CVPR 2025 Highlight, MIT license, frozen DINOv2 + tiny learned decoder, checkpoints on PyTorch Hub/Hugging Face) outputs a heatmap of *the place in the frame each person is looking at*, encodes the scene **once** for all 40 students, and consumes the head boxes we already get free from pose. Projecting every student's gaze heatmap onto the seat map and aggregating them yields a live room-level **attention field** — enabling desk-leakage detection (find the desk being copied FROM), lookout/cover-pattern detection, dead-drop attention, and reciprocal-gaze evidence no yaw-angle system can express. Keypoint head-yaw is retained as Tier-C fallback and cross-check. Drishti (दृष्टि) literally means *gaze* — this layer makes the product's name its thesis. Full spec, features, risks and 72-h integration plan: §13A.
 
 **Headline demo claim to make on stage:** "On our scripted test set, VIGIL produced X false alerts per student-hour at Y% event recall, and abstained on Z% of low-visibility frames — and every alert explains itself." (X, Y, Z measured on your own recorded data before finals; never fabricated.)
 
@@ -40,8 +41,8 @@ Six decisions drive everything else in this dossier:
 | Tagline | *Sees behaviour. Explains evidence. Never accuses.* |
 | Primary user | Chief invigilator / centre superintendent / exam-cell control room |
 | Core problem | One invigilator cannot continuously observe 30–60 students; raw CCTV walls shift the same impossible attention problem to a control room. |
-| Key differentiation | Seat-anchored anonymous tracking + relational (student↔student) evidence graph + counterfactual explanations + calibrated abstention — none publicly demonstrated together by existing remote proctors or CCTV analytics **[Inferred from Track A/E]** |
-| Flagship USP | Seat-Graph Evidence Fusion with Counterfactual Alert Cards |
+| Key differentiation | Room-level **attention field** from per-student gaze-target heatmaps (§13A) + seat-anchored anonymous tracking + relational (student↔student) evidence graph + counterfactual explanations + calibrated abstention — none publicly demonstrated together by existing remote proctors or CCTV analytics **[Inferred from Track A/E]** |
+| Flagship USP | **Drishti Attention Field → Seat-Graph Evidence Fusion with Counterfactual Alert Cards** (gaze-target heatmaps feed the seat graph; §13, §13A) |
 | Privacy promise | No facial recognition, no identity, skeleton-first processing, anonymous seat IDs, local inference, short configurable retention, event-clip-only storage |
 | Explainability promise | Every alert answers the 14 questions in §14; every alert includes "what would not have triggered this" |
 | Real-time promise | ≤ 5 s from behaviour completion to alert card at ≥ 10 processed FPS per stream on a single consumer GPU **[Inferred target; measure before claiming]** |
@@ -49,7 +50,7 @@ Six decisions drive everything else in this dossier:
 **Feature buckets (compulsory separation, per assignment §10):**
 1. **Mandatory** (problem statement): multi-person detection/tracking, pose, posture, head orientation, hand/wrist analysis, glance/turn/rotation events, non-verbal-communication candidates, phone detection, chit-where-feasible, explainable alerts, seat timelines, event log, privacy, no accusation, human review.
 2. **Proven additions** (existing work, adapted): classroom-tuned phone-use detector (SCB-Dataset), weakly-supervised per-seat anomaly scorer (CHEESE/MIL lineage), near-row head-pose/gaze module (6DRepNet/L2CS-Net lineage). Details §11.
-3. **Apparently novel USPs**: seat-graph reciprocal evidence, counterfactual alert cards, personal baseline calibration, seat-anchored occlusion recovery, visibility-tiered abstention. Novelty audit §9/§12.
+3. **Apparently novel USPs**: **Drishti Attention Field + D-suite (desk-leakage map, lookout pattern, dead-drop attention, gaze fingerprints, coverage complement — §13A)**, seat-graph reciprocal evidence, counterfactual alert cards, personal baseline calibration, seat-anchored occlusion recovery, visibility-tiered abstention. Novelty audit §9/§12/§13A.7.
 4. **Future production**: multi-camera fusion, learned interaction transformer, conformal calibration at scale, drift monitoring, SIEM/audit integration.
 5. **Intentionally excluded**: facial recognition/identity, eye-gaze tracking, audio analysis (MVP), emotion recognition, automated "cheating scores", long-range chit/earbud claims, room-scan style intrusiveness.
 
@@ -200,10 +201,11 @@ Definitions the judges must hear: **eye gaze** (pupil-based, needs ~high-res fac
 | Face-based 6DoF head pose | 6DRepNet (rotation-matrix regression; ~3.97° MAE AFLW2000); WHENet (full 360° yaw); HopeNet (classic) | Tier A rows only (face ≥ ~30–40 px) | [Knowledge — 6DRepNet used inside real e-cheating systems per CMC/JES surveys **[Verified usage]**] |
 | Appearance gaze | L2CS-Net, Gaze360, ETH-XGaze models | Webcam-range only; NOT hall CCTV | [Knowledge; L2CS-Net usage in proctoring systems **[Verified]**] |
 | Keypoint-geometry yaw proxy | nose/ear/eye keypoint asymmetry + shoulder line from RTMPose | All tiers; coarse Left/Centre/Right + approximate angle | [Knowledge/standard practice] |
-| Gaze-target / attended-target estimation | GazeFollow, VideoAttentionTarget (Chong et al., CVPR 2020) | Research-grade; adapt ideas (map head direction to neighbour seats via geometry) rather than models | [Knowledge] |
+| **Gaze-target / attended-target estimation** | **Gaze-LLE (CVPR 2025 Highlight): frozen DINOv2 + lightweight gaze decoder → 64×64 heatmap of the attended scene location per person; scene encoded once for N people; MIT license, PyTorch Hub checkpoints** — lineage continues with "Gaze Target Estimation Anywhere with Concepts" (CVPR 2026) and GazeVLM (2026) | **Tier A/B primary signal (§13A)** — works on rear/side head views (trained on third-person GazeFollow/VideoAttentionTarget scenes, our exact CCTV geometry); back rows unvalidated → per-tier validation + abstention | **[Verified — github.com/fkryan/gazelle, arXiv 2412.09586]** |
+| (older gaze-target line) | GazeFollow, VideoAttentionTarget (Chong et al., CVPR 2020) | Superseded by Gaze-LLE above | [Knowledge] |
 | Body orientation | MEBOW (CVPR 2020, monocular body-orientation-in-the-wild) | All tiers; torso-rotation evidence | [Knowledge] |
 
-**Decision:** MVP uses keypoint-geometry yaw (3-class + angle estimate) everywhere + 6DRepNet on face crops where face ≥ 40 px; "gaze" is *never* claimed — the dashboard says "head direction". Eye-gaze is in §Excluded.
+**Decision (updated 18 July 2026):** MVP uses **Gaze-LLE gaze-target heatmaps as the primary attention signal on Tiers A/B** (§13A), keypoint-geometry yaw (3-class + angle estimate) on all tiers as fallback and cross-check, and 6DRepNet on Tier-A face crops as an optional consistency check. Vocabulary discipline: the dashboard says "attention estimate" / "head direction" — **pupil eye-gaze is *never* claimed** (still §Excluded; gaze-*target* estimation infers the attended location from head appearance + scene context, which is a different, physically recoverable quantity).
 
 ### 6.5 Skeleton action/gesture models
 
@@ -316,12 +318,87 @@ Weighted score = 25% real-world value + 20% accuracy improvement + 15% FP reduct
 | C. Skeleton privacy replay | 6 | 3 | 3 | 5 | 9 | 8 | 10 | **5.6** | Judges may ask "where's the proof clip" → keep short RGB event clips |
 | G. Digital twin geometry | 6 | 5 | 6 | 4 | 6 | 5 | 5 | **5.4** | Overbuild risk; MVP needs only seat polygons + row tiers |
 | H. Interaction chains | 7 | 6 | 7 | 6 | 3 | 7 | 5 | **5.9** | Rare-event data starvation in 72 h |
+| **I. Drishti Attention Field (D-suite, §13A)** | 9 | 8 | 8 | **10** | 7 | **10** | 7 | **8.6** | Back-row heatmap quality unvalidated → hour-0 go/no-go test |
 
-**Selection: Flagship = A + D fused** ("Seat-Graph Evidence Fusion with Counterfactual Cards") — highest combined FP-reduction, novelty and demo impact, and D is nearly free once the rule engine exposes its own thresholds. **Secondary = B** (closes a gap the 2025 literature explicitly names as future work **[Verified]**). **Fallback = F + C** — implementable in hours, judge-friendly, zero research risk. E and G ship silently as engineering inside tracking/setup; H folds into A as a 3-step chain demo only if time allows.
+**Selection (updated): Flagship = I → A + D fused** ("Drishti Attention Field feeding Seat-Graph Evidence Fusion with Counterfactual Cards") — I supplies the quantitative gaze-mass evidence that makes A's edges continuous and defensible, scores highest on novelty and demo impact, and rides one MIT-licensed pretrained model (Gaze-LLE) with a half-day integration. **Secondary = B** (closes a gap the 2025 literature explicitly names as future work **[Verified]**), now upgraded to *attention-fingerprint* baselines (§13A D4). **Fallback = F + C** — implementable in hours, judge-friendly, zero research risk; if the hour-0 Gaze-LLE quality test fails at hall distance, the entire original A+D flagship still stands unmodified on keypoint-yaw. E and G ship silently as engineering inside tracking/setup; H folds into A as a 3-step chain demo only if time allows.
 
 ## 13. Selected Flagship USP — Specification
 
 **Seat-Graph Evidence Fusion with Counterfactual Cards.** Nodes = anonymous seat tracks with state (head-yaw stream, torso angle, wrist activity, baseline stats, visibility tier). Directed edges accumulate *time-decayed evidence*: `glance_toward(A→B)` when A's head direction intersects B's seat sector for ≥ T_dur; `responds(B→A)` when B produces a glance/torso/hand event within Δt of A's event; `reciprocal(A↔B)` when both directions occur within a window; `handoff_candidate(A→B)` when wrist regions approach across the seat boundary ± object candidate. An alert of class C-x fires only when edge evidence crosses a fused threshold (§20), and the card renders BOTH the evidence trace and the counterfactual: *"Seat C7 → C8: three rightward head events (1.9 s, 2.3 s, 2.1 s) within 52 s, C7 baseline P95 = 1.1 s; C8 torso shift within 6 s of event 3. A single glance under 1.8 s, or absence of the C8 response, would not have generated this alert."* Every number in the sentence is read from the engine state — not generated text.
+
+## 13A. Drishti Attention Field (DAF) — NEW Flagship Perception Layer [added 18 July 2026]
+
+**The one-line crazy:** stop estimating head *angles*; reconstruct, for every student simultaneously, the *exact place in the room they are paying attention to* — then integrate all of it into a live, physics-grounded **attention field** of the exam hall. Nobody at a hackathon armed with YOLO has anything in this category. And Drishti (दृष्टि) means *gaze*: the flagship layer is the product's name made literal.
+
+### 13A.1 Enabling model — Gaze-LLE
+
+- **What:** Gaze-LLE, "Gaze Target Estimation via Large-Scale Learned Encoders" (CVPR 2025 **Highlight**), github.com/fkryan/gazelle, arXiv 2412.09586. A **frozen DINOv2** backbone + a gaze decoder with 1–2 orders of magnitude fewer learned parameters than prior gaze-following stacks. **MIT license. Checkpoints on PyTorch Hub (ViT-B and ViT-L; GazeFollow-trained + VideoAttentionTarget-fine-tuned). Live Hugging Face Space for instant testing.**
+- **I/O:** input = full frame (448×448) + per-person head bbox in normalized coords; output = **64×64 heatmap over the frame of the attended location** + optional in/out-of-frame score. Head bboxes come **free** from RTMPose head keypoints (nose/eyes/ears) — zero extra detectors.
+- **Why it is built for exam halls specifically:** the scene is encoded **once** per frame; each additional person costs only a tiny decoder pass → **40 students ≈ the cost of 1**. Webcam proctoring products physically cannot use this class of model (no scene context); we are the ideal consumer of it. Trained on third-person scene datasets (GazeFollow, VideoAttentionTarget) that include people seen from behind and from the side — exactly our CCTV geometry.
+- **Honesty note (house ethos unchanged):** this is **NOT pupil eye-tracking** (which remains §Excluded and physically impossible at hall range). Gaze-target estimation infers the attended location from head appearance + scene context. Back-row performance (heads < ~20 px) is **unvalidated** → per-tier validation on our own recordings; Tier C keeps keypoint-yaw + abstention. Dashboard vocabulary: **"attention estimate"**, never "we know what they saw."
+
+### 13A.2 From heatmap to evidence — seat gaze-mass
+
+Per frame, per student *i*: heatmap `H_i` (64×64, normalized to sum 1). Project seat polygons + whitelist zones (board, clock, invigilator desk, door) into heatmap grid once at setup. Then:
+
+`gaze_mass_i(z) = Σ H_i[cells of zone z]` for every zone z ∈ {own desk, each neighbour desk, board, clock, invigilator, door, elsewhere}.
+
+This converts the binary "yaw in left sector" into a **continuous, calibratable probability mass** per target. Downstream upgrades fall out for free:
+- `glance_toward(A→B)` fires when `gaze_mass_A(desk_B) > θ_mass` (start ~0.15, tune on recordings) sustained ≥ T_dur — replaces the yaw-sector test inside B1–B3, C1, C3 **without redesigning the rule engine**.
+- Counterfactual cards get sharper numbers: *"only 4% of Seat C7's attention mass touched any neighbour's desk in the window — the trigger requires ≥15% sustained 2 s"*.
+- Whitelists become trivial: clock-check = mass on the clock zone; no bearing geometry needed.
+
+### 13A.3 The D-suite — crazy features unlocked by the field
+
+**D1 — Desk Leakage Map ("which desk is leaking answers?")** — *paradigm inversion: attention-centric, not suspect-centric.* Aggregate **inbound foreign attention** per desk: `leak(s) = Σ_{i not seated at s} gaze_mass_i(s)` integrated over a rolling 2–5 min window, normalized against session baseline. A desk glowing with foreign attention identifies the **source** — the student being copied *from* (willingly or not) — a thing no per-suspect system in any literature we searched can express. Output: room heat overlay + "foreign attention-seconds received" per desk + a top-K **LeakRank** list. Bonus: the aggregate field is anonymous by construction — a privacy-*positive* analytic.
+
+**D2 — Lookout / Cover-Pattern Detector** — the invigilator is already a tracked person in frame; make them a named node. Signature: student A's attention repeatedly samples the invigilator's position ("guard-checking") while a nearby student B's attention dwells on a neighbour's desk, **anti-correlated in time** (B looks only in the gaps when A confirms the invigilator is looking away). Detect via lagged cross-correlation of the two gaze-mass time series + repetition gate + conservative thresholds. This is a **two-role coordination structure** — the classic real-world cheating formation — invisible to every individual-level system in the retrieved literature. Max severity: high-priority review; never fires solo without repetition.
+
+**D3 — Dead-Drop / Shared-Third-Point Attention** — two students' heatmaps repeatedly intersecting on the **same non-desk, non-whitelisted location** (bag on the floor, windowsill, wall chart) → "shared attention on a non-exam object" → possible stash/planted-material candidate. Computed as pairwise heatmap-intersection mass on non-zone cells, repeated over minutes. Whitelist board/clock/door to kill the obvious confounders.
+
+**D4 — Attention Fingerprint Baselines (upgrade of USP-B)** — each seat's personal baseline stops being scalar glance-durations and becomes a **distribution over attention targets** {own desk, board, clock, invigilator, neighbours, elsewhere} learned in the first 8–10 min — the student's "gaze diet." Drift = KL divergence of the last-2-min distribution vs own baseline → one interpretable scalar into fusion, and the honest engine behind template 15's "deviates from its own baseline" language.
+
+**D5 — Coverage Complement ("Drishti watches what you can't")** — run the SAME model on the invigilator to estimate *their* attended region. Combine human attention + per-seat AI visibility into a live **coverage map**: (a) events that occur while unobserved by the human get priority weighting; (b) behaviour that *systematically occurs only when unwatched* (surveillance-aware timing, computed per seat) becomes its own fused signal — the strongest honest tell available; (c) the session report quantifies blind-spot exploitation. Pitch line: the AI does not replace the invigilator — **it complements their gaze**.
+
+**D6 — Attention Beam Overlay + Field Replay (the demo weapon)** — live "Attention Lens" toggle: a translucent beam from each head to its heatmap argmax + the room heat overlay breathing in real time. Replay mode: **skeletons + beams only** — evidence replay that shows *where everyone was looking* with zero faces on screen. This upgrades skeleton replay from privacy-nice to jaw-dropping, and it is the opening shot of the demo (§31).
+
+### 13A.4 What stays, what changes
+
+- Rule engine, fusion, abstention, severity ladder, counterfactual cards, seat-graph: **unchanged in shape** — edges now carry gaze-mass numbers (continuous evidence in, stronger cards out).
+- Keypoint-yaw: retained on all tiers as fallback + cross-check. Disagreement between yaw sector and heatmap direction → confidence penalty → abstain. Never depend on a single model.
+- 6DRepNet: demoted to optional Tier-A consistency check; cut from MVP if Gaze-LLE validates (fewer models, fewer failure points).
+- Excluded list: pupil eye-tracking stays excluded; language discipline extends — "attention estimate," never "gaze proof."
+
+### 13A.5 72-h integration plan (delta to §27)
+
+| Hours | Task |
+|---|---|
+| 0–2 | **Go/no-go:** run the HF Space / Colab on 5 stills of YOUR mock hall (front row + row 4 + row 8). Decide Tier A/B/C capability per row. Do this before anything else in the gaze workstream. |
+| 2–7 | Integrate torch-hub ViT-B checkpoint: head bboxes from pose keypoints → batched decode → per-seat gaze-mass vectors logged per frame (run at 4–6 Hz keyframes; attention doesn't need 15 FPS). |
+| 7–12 | Attention-field aggregator (rolling window + EMA) + D6 beams/heat overlay in the dashboard. |
+| 12–16 | Rewire B1/C1/C3 gates to gaze-mass; ship D1 (leakage map) + D4 (fingerprint baselines). |
+| 16–20 | D2 lookout detector **only if** a 3-volunteer rehearsal slot exists; else roadmap. D3/D5 = stretch/roadmap. |
+| any | **Fallback:** if hall-distance quality disappoints → beams demo on Tier A only, yaw engine keeps everything else alive; no other component breaks. |
+
+### 13A.6 Risks
+
+| Risk | Reality check | Mitigation |
+|---|---|---|
+| Back-row heatmap quality unknown | model never validated on 8 m CCTV | hour-0 go/no-go; per-tier validation on recordings; Tier-C abstains |
+| FPS cost of DINOv2 | ViT-B per keyframe + N tiny decodes | 4–6 Hz keyframe cadence; ViT-B not ViT-L; 448 input; scene encoded once |
+| Judges conflate with eye-tracking | "you said gaze was impossible!" | Q&A 19 ready (§32): pupil gaze ≠ scene gaze-target; cite CVPR 2025/2026 lineage |
+| Single-model dependence | heatmap failure = attention blindness | yaw fallback always computed; disagreement → abstain |
+| D2/D3 false positives | anxious students guard-check too | conservative θ, repetition + anti-correlation gates, max severity "review," never solo-fire |
+
+### 13A.7 Novelty position (searches logged 18 July 2026)
+
+Searched: "gaze target estimation exam proctoring cheating detection" · "Gaze-LLE Hugging Face" · "gaze target estimation multi-person classroom 2026" · "zero-shot video anomaly detection VLM 2026". Every gaze-in-proctoring hit is **single-examinee webcam eye/head tracking**; scene-level gaze-*target* estimation applied to multi-student physical halls: **no hits**. The research lineage is peaking right now (Gaze-LLE CVPR 2025 Highlight → "Gaze Target Estimation Anywhere with Concepts" CVPR 2026 → GazeVLM 2026) and is unproductized in this domain. §9 scale: DAF core = **4 (apparently novel combination)**; D1 leakage-inversion and D2 lookout = **4–5 (no prior art found in exam context in any search)**; D5 coverage complement = 4. Stage language stays disciplined: "not found in our N-source search," never "world-first."
+
+### 13A.8 Adjacent 2025–26 upgrades adopted into the roadmap (not MVP)
+
+- **MoCoDAD-lineage skeleton-diffusion anomaly head** (ICCV 2023 + 2024–25 successors, e.g. frequency-guided & dual-conditioned motion diffusion): a diffusion model *imagines* each seat's plausible next 1–2 s of skeleton motion; reality falling outside the imagined set = anomaly score. Label-free, skeleton-only (privacy story intact) — **replaces the MIL method inside Add-on 2** at competition phase. Pitch line: "the system dreams your next two seconds and flags you when reality surprises it."
+- **SAM 3 / 3.1 promptable concept segmentation** (Meta, open weights): text-prompted open-vocabulary detection + video tracking ("mobile phone," "folded paper") on Tier-A crops — replaces the OWL-ViT offline backup and can shortcut the phone fine-tune if SCB training stalls.
+- **V-JEPA 2 surprise signal** (Meta world model): prediction-error-as-anomaly over video embeddings — production-roadmap experiment only; name-drop as the research trajectory, do not build in 72 h.
 
 ## 14. Explainable Alert Design
 
@@ -350,7 +427,7 @@ Severity ladder: silent-log → low → medium → high-review-request → unobs
 
 ## 15. Behaviour Taxonomy (formal)
 
-Signals key: HY=head-yaw stream, TR=torso rotation, WH=wrist/hand zones, OBJ=object candidates, VIS=visibility, BASE=personal baseline, PAIR=seat-graph edge. Window = evaluation horizon. Sev = max severity reachable.
+Signals key: HY=head-yaw stream, **GZ=gaze-mass per zone from Gaze-LLE heatmaps (§13A.2 — upgrades HY wherever Tier A/B)**, TR=torso rotation, WH=wrist/hand zones, OBJ=object candidates, VIS=visibility, BASE=personal baseline, PAIR=seat-graph edge, **FIELD=aggregated attention field (§13A.3)**. Window = evaluation horizon. Sev = max severity reachable.
 
 | ID | Behaviour | Class | Signals | Window | Min visibility | Top confounders | Method | Sev |
 |---|---|---|---|---|---|---|---|---|
@@ -377,8 +454,13 @@ Signals key: HY=head-yaw stream, TR=torso rotation, WH=wrist/hand zones, OBJ=obj
 | C4 | Object pass / receive | Susp-rel | PAIR handoff_candidate ± OBJ | 20 s | A/B | passing spare pen (invigilator confirms) | seat-graph + OBJ | High |
 | C5 | Mirrored gestures | Susp-rel | PAIR correlated WH patterns | 120 s | B | coincidence | correlation + repetition, conservative θ | Low→Med |
 | C6 | Event chain (look→respond→hand→object) | Susp-rel | ordered A/B/C events | 3–5 min | B | — | chain matcher over graph edges | High |
+| D1 | Desk leakage (foreign attention on one desk) | Susp-field | FIELD inbound gaze-mass on desk s, baseline-normalized | 2–5 min | B | popular seat near door/window (geometry whitelist) | attention-field aggregation (§13A.3-D1) | High |
+| D2 | Lookout / cover pattern | Susp-rel | GZ(A→invigilator) anti-correlated with GZ(B→neighbour desk), lagged | 3–5 min | B both | anxious student guard-checking alone | lagged cross-correlation + repetition (§13A.3-D2) | High |
+| D3 | Shared third-point attention (dead-drop) | Susp-rel | GZ(A)∩GZ(B) mass on same non-desk, non-whitelist cells, repeated | 5 min | B | both glancing at clock/board (whitelist) | heatmap intersection (§13A.3-D3) | Med |
+| D4 | Attention-fingerprint drift | Susp-ind | KL(last-2-min GZ distribution ‖ own baseline) | 2 min roll | B | topic change, panic near end-time (session gate) | distributional baseline (§13A.3-D4) | Low→Med |
+| D5 | Surveillance-aware timing | Susp-ind | B/C/D events occurring only when invigilator attention elsewhere | session | B | coincidence (needs many repetitions) | coverage complement (§13A.3-D5) | Med |
 
-Rule of the house: **no behaviour ever equals "cheating"**; C-class + object evidence maxes at "high-priority review request".
+Rule of the house: **no behaviour ever equals "cheating"**; C-class/D-class + object evidence maxes at "high-priority review request". D-class events never fire solo — they enter fusion as corroborating evidence and require repetition gates.
 
 ---
 
@@ -390,7 +472,8 @@ Rule of the house: **no behaviour ever equals "cheating"**; C-class + object evi
 | Person detection | YOLO11-s (person cls) | RT-DETR-R18 (Apache) | 5-min setup, strong small-person recall | none (MVP) | ONNX/TensorRT | AGPL license flag |
 | Pose | **RTMPose-m** via rtmlib/ONNX | **RTMO-l** when >25 people | 75.8 AP @ real-time CPU/GPU **[Verified]**; RTMO latency ~person-count-invariant **[Verified]** | none (MVP) | ONNX | wrist jitter at Tier C |
 | Tracking | **ByteTrack + Seat-Anchor layer (custom)** | BoT-SORT / OC-SORT | motion-only suits uniforms; seat anchor kills ID-switches structurally | none | pure Python | needs one-time seat-polygon setup |
-| Head orientation | keypoint-geometry yaw (all tiers) + 6DRepNet (Tier A) | WHENet | honest tiering; degree-level where physics allows | none | ONNX | Tier B/C = 3-class only |
+| **Attention / gaze target (NEW flagship input)** | **Gaze-LLE ViT-B (frozen DINOv2 + gaze decoder) → per-person 64×64 heatmaps → seat gaze-mass (§13A)** | keypoint-yaw only (if hour-0 test fails) | scene encoded once for N people; MIT; PyTorch Hub ckpts; head boxes free from pose | none | PyTorch / ONNX-export | back rows unvalidated → per-tier go/no-go + abstention; 4–6 Hz keyframe cadence |
+| Head orientation (fallback + cross-check) | keypoint-geometry yaw (all tiers) + 6DRepNet (Tier A, optional) | WHENet | honest tiering; disagreement with heatmap → abstain | none | ONNX | Tier B/C = 3-class only |
 | Hand/wrist analysis | wrist-keypoint trajectory buffer + desk/lap/pocket zones | RTMW whole-body (later) | zero extra models | none | — | finger detail absent |
 | Object detection | YOLO fine-tuned: phone (+optional book/paper) on SCB + own data | OWL-ViT open-vocab for offline review | SCB proves classroom phone detection to ~80 mAP class-family **[Verified]** | 1 GPU-hr | ONNX | range limits §4 |
 | Individual temporal model | **Rule engine** (angles, durations, counts, hysteresis) | +ST-GCN/PoseC3D head (competition) | explainable by construction; rules ARE the counterfactuals | none | — | unknown behaviours → covered by add-on 2 |
@@ -446,10 +529,14 @@ flowchart LR
   DEC --> DET[Person detector]
   DET --> POSE[RTMPose-m ONNX]
   POSE --> TRK[ByteTrack + Seat Anchor]
-  TRK --> HEAD[Head-yaw: kpt geometry / 6DRepNet Tier A]
+  TRK --> HEAD[Fallback head-yaw: kpt geometry / 6DRepNet Tier A]
+  TRK --> GAZE[Gaze-LLE: per-person gaze heatmaps → seat gaze-mass]
+  GAZE --> FIELD[Drishti Attention Field aggregator: leakage / lookout / fingerprints]
   TRK --> HAND[Wrist trajectory + zones]
   DEC --> OBJ[Phone detector + hand-crop 2nd stage]
   HEAD --> EV[Rule event engine + baselines]
+  GAZE --> EV
+  FIELD --> EV
   HAND --> EV
   OBJ --> EV
   EV --> GRAPH[Seat-graph pairwise correlator]
@@ -468,8 +555,8 @@ sequenceDiagram
   participant G as Seat graph
   participant F as Fusion
   participant D as Dashboard
-  T->>E: yaw>25° @ C7 (t=1841s)
-  E->>E: 3rd event in 52s; durations 1.9/2.3/2.1s; baseline P95=1.1s
+  T->>E: gaze_mass(C7→C8 desk)=0.23 (t=1841s), yaw cross-check agrees
+  E->>E: 3rd event in 52s; durations 1.9/2.3/2.1s; baseline P95=1.1s; C8 desk foreign-attention 4.1s/90s
   E->>G: candidate B1 C7→right sector
   G->>G: C8 torso shift within 6s → edge C7↔C8
   F->>F: visibility .86, track conf .93 → score 3.4 → MEDIUM
@@ -536,8 +623,12 @@ All 13 mandated MVP demonstrations covered. H = heuristic, L = learned/pretraine
 | Ingest + frame sampler | P0 | BE | — | 2 h | MVP | low |
 | Person det (L) + pose (L, rtmlib/ONNX) | P0 | CV | ingest | 3 h | MVP | env setup |
 | ByteTrack + Seat-Anchor (H) + seat-polygon setup UI | P0 | CV | pose | 6 h | MVP | homography fiddle |
-| Head-yaw proxy (H) + 6DRepNet Tier A (L) | P0 | CV | pose | 4 h | MVP | angle noise |
-| Rule event engine: B1–B4 glance/turn/rotation (H) | P0 | CV/BE | yaw | 6 h | MVP | threshold tuning |
+| Head-yaw proxy (H, fallback+cross-check) + 6DRepNet Tier A (L, optional) | P1 | CV | pose | 3 h | MVP | angle noise |
+| **Gaze-LLE (L): head boxes → heatmaps → seat gaze-mass (§13A) — FLAGSHIP INPUT** | P0 | CV | pose | 5 h | MVP | hour-0 go/no-go on hall stills |
+| Attention Field aggregator + D6 beam/heat overlay (H) | P0 | CV/FE | gaze | 5 h | MVP | keyframe perf tuning |
+| D1 desk-leakage map + D4 attention-fingerprint baselines (H) | P1 | CV | field | 4 h | MVP | window/threshold tuning |
+| D2 lookout detector (H) | P2 | CV | field | 3 h | stretch | needs 3-volunteer rehearsal |
+| Rule event engine: B1–B4 glance/turn/rotation (H, gates on gaze-mass where Tier A/B) | P0 | CV/BE | gaze/yaw | 6 h | MVP | threshold tuning |
 | Wrist zones + B5/B6 hand events (H) | P1 | CV | track | 4 h | MVP | desk-zone calib |
 | Phone detector fine-tune on SCB (L) + temporal confirm | P1 | CV | — | 5 h | MVP | small-object range |
 | Chit approach: Tier-A hand-crop candidate (H+L) | P2 | CV | objects | 3 h | MVP(one approach) | honesty-framed |
@@ -552,18 +643,18 @@ All 13 mandated MVP demonstrations covered. H = heuristic, L = learned/pretraine
 | Backup demo video | P0 | all | everything | 2 h | MVP | do not skip |
 
 **28. Two-week plan:** full §18 dataset, detector/pose spot fine-tunes, hard-negative round 1, OC-SORT trial, per-room calibration wizard, UI polish, 40-person stress test, threshold study.
-**29. Four-to-six-week plan:** ST-GCN/PoseC3D individual head + MIL anomaly head (add-on 2), learned fusion, conformal-style calibrated abstention, full T1/T2/T3 eval with ablations + fairness slices, TensorRT/INT8 Jetson build, docs + model card.
+**29. Four-to-six-week plan:** ST-GCN/PoseC3D individual head + **skeleton-diffusion anomaly head (MoCoDAD lineage, §13A.8 — supersedes MIL method in add-on 2)**, D2/D3/D5 hardening with rehearsed multi-role scripts, learned fusion, conformal-style calibrated abstention, full T1/T2/T3 eval with ablations (+E7/E8) + fairness slices, TensorRT/INT8 Jetson build, docs + model card.
 **30. Production roadmap:** multi-camera per hall with cross-view fusion, GNN relational model, fleet monitoring + drift detection, retraining workflow from feedback store, security hardening + pen test, DPDP DPIA with counsel, pilot MoU with one college, reliability SLOs.
 
 ## 31. Demo Script
 
-**3-minute version (7 beats):** (1) hall view, 6 volunteers writing — seat map all green, zero alerts, counter shows "false alerts this session: 0". (2) One volunteer takes a single brief glance — nothing fires; click seat → card shows "event logged, below threshold: single 1.2 s glance; alert requires ≥3 or >P95 duration" ← counterfactual as the WOW. (3) Repeated glances → medium alert card reads its evidence aloud. (4) Neighbour responds → seat-graph edge lights, pair alert C1. (5) Phone lift → object alert with 3-frame confirmation clip. (6) Assistant walks through, occludes a seat → seat turns grey "visibility insufficient — human review", NOT suspicious. (7) Invigilator dismisses one alert → "logged as hard negative; thresholds will learn." Close: "X false alerts per student-hour on our recorded benchmark, and every alert explains itself — VIGIL assists, never accuses."
+**3-minute version (8 beats):** (1) **OPENING SHOT — flip on the "Attention Lens": a translucent beam appears from every volunteer's head to the exact spot they're looking at, room attention-heatmap breathing underneath. Say the line: "Drishti means gaze. This is the room's attention field — live."** No competitor's screen looks anything like this. (2) 6 volunteers writing — every beam rests on its own desk, seat map all green, counter shows "false alerts this session: 0". (3) One volunteer takes a single brief glance — beam flicks to the neighbour's desk and back, nothing fires; click seat → card: "event logged, below threshold: 1.2 s, 6% gaze-mass; alert requires ≥3 events or ≥15% sustained" ← counterfactual as the second WOW. (4) Repeated glances → medium alert card reads its gaze-mass evidence aloud; **desk-leakage panel shows the neighbour's desk warming up ("foreign attention: 4.1 s in 90 s")**. (5) Neighbour responds → two beams cross → seat-graph edge lights, pair alert C1 with reciprocal gaze-mass numbers. (6) Phone lift → object alert with 3-frame confirmation clip. (7) Assistant walks through, occludes a seat → seat turns grey "visibility insufficient — human review", NOT suspicious. (8) Invigilator dismisses one alert → "logged as hard negative; thresholds will learn." Close: "X false alerts per student-hour on our recorded benchmark, every alert explains itself, and you just watched the room's attention field in real time — VIGIL assists, never accuses."
 **5-minute version** adds: stretching hard-negative suppression, chit Tier-A candidate with uncertainty language, backward glance, skeleton-only privacy replay, threshold slider live-tune, health bar, and the explicit line "the system is architecturally incapable of naming a student."
 **Failure plan:** pre-recorded full run on disk; if live pose stutters, switch input source to file — same pipeline, honest disclosure. Wow moment = beat (2): a system that explains *why it did NOT alert* demonstrates intelligence, not animation.
 
 ## 32. Pitch Strategy
 
-15 s: "Invigilators can't watch 60 students at once, and CCTV walls just move the problem. VIGIL turns exam-hall cameras into an explainable assistant that spots behaviour patterns between students — and never accuses anyone."
+15 s: "Drishti means gaze. We reconstruct where all 60 students are looking — live, from one ordinary CCTV camera — and turn the room's attention field into explainable evidence between students. It spots the desk being copied from, not just the copier — and it never accuses anyone."
 30 s: + "Skeleton-first and identity-free: anonymous seats, head-direction and hand-movement evidence, pairwise reciprocal-glance detection, and every alert ships with a counterfactual — what would NOT have triggered it. When it can't see, it says so instead of guessing."
 1 min: + market gap (govt AI-CCTV is coarse + facial-recognition-heavy; remote proctors don't do halls), headline metric (false alerts/student-hour), privacy architecture, measured mini-benchmark numbers.
 3 min technical: pipeline slide (§21 diagram), seat-graph math, baseline calibration, abstention, eval protocol + ablation bars, roadmap.
@@ -588,6 +679,8 @@ Slides: Problem · Market gap (UPSC/UP Board evidence) · Architecture · Flagsh
 16. *Hard to copy?* The evidence-fusion thresholds, baseline calibration and our annotated hall benchmark are the moat — the models are commodity, the *judgment layer* isn't.
 17. *Genuinely novel?* Seat-graph pairwise evidence + counterfactual cards + calibrated abstention in this domain; components exist in research, the combination didn't appear in our 60-source search — stated exactly that carefully.
 18. *Real college deployment?* Pilot: camera survey, seat-map setup, one-term shadow mode (alerts logged, not acted on), DPIA, then live with appeals process.
+19. *You said eye-gaze was impossible — now you claim gaze?* Pupil-based eye-tracking IS impossible at hall range and we still don't do it. What we run is scene-level gaze-**target** estimation (Gaze-LLE, CVPR 2025; lineage continues at CVPR 2026) — it infers the attended *location* from head appearance plus scene context, works on rear views, and we validated per-row capability on our own recordings; where it degrades we abstain. The dashboard says "attention estimate," never "gaze proof."
+20. *Why hasn't anyone done the attention field before?* The enabling model class (scene-encoded-once, multi-person gaze-target heatmaps) only became practical in 2025; webcam proctors have no scene to encode, and CCTV analytics vendors stop at coarse incident flags. We checked: no exam-domain hit in our searches — stated exactly that carefully.
 
 ## 33. Cost & Hardware Plan [Inferred estimates — validate]
 
@@ -613,6 +706,8 @@ Top 5 from adversarial review (7 personas: CV researcher, judge, administrator, 
 
 ## 36. Bibliography (primary sources used)
 
+Verified 18 July 2026 (Attention-Field research update): Gaze-LLE (CVPR 2025 Highlight) — arxiv.org/abs/2412.09586, github.com/fkryan/gazelle (MIT, torch-hub ckpts), huggingface.co/spaces/fffiloni/Gaze-LLE · Gaze Target Estimation Anywhere with Concepts (CVPR 2026) — openaccess.thecvf.com/content/CVPR2026/papers/Cao_Gaze_Target_Estimation_Anywhere_with_Concepts_CVPR_2026_paper.pdf · GazeVLM — arxiv.org/abs/2511.06348 · MoCoDAD (ICCV 2023) — arxiv.org/abs/2307.07205, github.com/aleflabo/MoCoDAD · Dual-Conditioned Motion Diffusion — arxiv.org/abs/2412.17210 · Frequency-Guided Diffusion SVAD — arxiv.org/abs/2412.03044 · SAM 3 — ai.meta.com/blog/segment-anything-model-3, github.com/facebookresearch/sam3 · V-JEPA 2 — arxiv.org/abs/2506.09985, ai.meta.com/research/vjepa · prior-art negative check: ieeexplore.ieee.org/document/9657277 (webcam gaze proctoring — the closest, and still single-examinee).
+
 Verified this session: RTMPose — arxiv.org/abs/2303.07399 · RTMO (CVPR 2024) — arxiv.org/abs/2312.07526 · RTMW — arxiv.org/abs/2407.08634 · SCB-Dataset — arxiv.org/abs/2304.02488, arxiv.org/abs/2310.02522, github.com/Whiffe/SCB-dataset · OEP — cvlab.cse.msu.edu/project-OEP.html · CHEESE MIL — arxiv.org/abs/2402.06107 · Multi-person HPE exam cheating — ieeexplore.ieee.org/document/9673534 · Improved-YOLOv8 exam halls — doi.org/10.1007/s10791-025-09747-3 · GPU-free invigilation — doi.org/10.3390/automation6040082 · Two-stage object-centric (FJCAI 2026) — arxiv.org/abs/2604.16234 · DL cheating benchmark (CMC 2025) — techscience.com/cmc/v85n2/63822/html · gembancud/Cheating-Detection — github.com/gembancud/Cheating-Detection · UPSC AI-CCTV tender — freepressjournal.in & indiatvnews.com (June 2024) · UP Board CCTV — careers360 (2022), indiatvnews (Feb 2026) · UPESSC AI catch — webnewswire.com (May 2026) · Staqu JARVIS — staqu.com, electronicsforu.com · Proctortrack status — proctortrack.com/support, securitymagazine.com · DPDP Rules 2025 — pib.gov.in notification PDF, ey.com, india-briefing.com.
 [Knowledge — confirm before quoting]: ViTPose arxiv 2204.12484 · ByteTrack 2110.06864 · BoT-SORT 2206.14651 · OC-SORT 2203.14360 · 6DRepNet 2202.12555 · L2CS-Net 2203.03339 · ST-GCN 1801.07455 · CTR-GCN 2107.12213 · PoseC3D 2104.13586 · CrowdPose 1812.00324 · DanceTrack 2111.14690 · Detecting Attended Visual Targets in Video 2003.02501 · MEBOW (CVPR 2020) · NTU RGB+D rose1.ntu.edu.sg.
 
@@ -624,7 +719,8 @@ Verified this session: RTMPose — arxiv.org/abs/2303.07399 · RTMO (CVPR 2024) 
 | Feature | Reason | Method | MVP | Acc. risk | Demo value |
 |---|---|---|---|---|---|
 | Det+pose+seat-anchored tracking | foundation, objectives 1–2,17 | YOLO11-s + RTMPose-m + ByteTrack+anchor | ✅ | low | high |
-| Head-yaw tiers | objectives 4,6,7 | kpt geometry + 6DRepNet-A | ✅ | med | high |
+| **Drishti Attention Field (gaze heatmaps → seat gaze-mass → D1/D4/D6)** | objectives 4,6,7,10 + flagship differentiation (§13A) | Gaze-LLE ViT-B frozen, torch-hub ckpt | ✅ | med (back rows → abstain) | **decisive** |
+| Head-yaw tiers (fallback + cross-check) | objectives 4,6,7 | kpt geometry + 6DRepNet-A optional | ✅ | med | med |
 | Rule event engine B1–B6 | objectives 3,5–9 | durations/repetition/baseline | ✅ | med | high |
 | Phone detector | objective 11 | SCB fine-tune + temporal confirm | ✅ | med | high |
 | Seat-graph C1–C4 (flagship) | objective 10 + differentiation | rule edges + Δt correlation | ✅ | med | very high |
@@ -638,19 +734,20 @@ Verified this session: RTMPose — arxiv.org/abs/2303.07399 · RTMO (CVPR 2024) 
 | Feature | Why excluded | Reconsider when |
 |---|---|---|
 | Facial recognition / identity | zero detection value, DPDP risk, accusation hazard | never for detection; attendance is a separate product |
-| Eye-gaze tracking | physically impossible at hall range | dedicated near cameras exist |
+| Eye-gaze (pupil) tracking | physically impossible at hall range — distinct from scene-level gaze-*target* estimation, which we DO build (§13A) | dedicated near cameras exist |
 | Long-range chit/earbud detection | below pixel floor (§4) | 4K+ per-row cameras |
 | Audio analysis | privacy surface, MVP scope | production, with counsel |
 | Emotion recognition | pseudo-scientific for this task, bias magnet | no |
 | Cloud video upload | DPDP surface, latency, cost | never for raw video |
 | Permanent per-student score | accusation by another name | no |
 
-**C. Final Model Stack** — as §16 table (RTMPose-m / RTMO-l backup · ByteTrack+anchor / BoT-SORT backup · kpt-yaw+6DRepNet / WHENet backup · YOLO11-s / RT-DETR backup · rules+fusion / +ST-GCN later).
+**C. Final Model Stack** — as §16 table (RTMPose-m / RTMO-l backup · ByteTrack+anchor / BoT-SORT backup · **Gaze-LLE ViT-B attention heatmaps / kpt-yaw fallback** · kpt-yaw+6DRepNet cross-check · YOLO11-s / RT-DETR backup · rules+fusion / +MoCoDAD-lineage diffusion anomaly later).
 
 **D. Final USP Stack**
 | USP | Novelty evidence | Tech value | Demo value | Effort | Decision |
 |---|---|---|---|---|---|
-| Seat-graph + counterfactuals | not found in 60-source search (§9) | high | very high | 9 h | **FLAGSHIP** |
+| **Drishti Attention Field + D-suite (§13A)** | no exam-domain hit in July-2026 searches; model lineage CVPR 2025→2026 | very high | **decisive** | ~14 h (incl. overlay) | **FLAGSHIP (perception)** |
+| Seat-graph + counterfactuals | not found in 60-source search (§9) | high | very high | 9 h | **FLAGSHIP (judgment)** |
 | Personal baselines | named as future work in 2025 literature [Verified] | high | high | 3 h | **SECONDARY** |
 | Abstention + skeleton replay | research-known, unproductized here | med | high | 5 h | **FALLBACK** |
 | Seat-anchored occlusion recovery | adjacent-domain techniques | high | med | in tracker | ship silently |
@@ -674,6 +771,8 @@ Verified this session: RTMPose — arxiv.org/abs/2303.07399 · RTMO (CVPR 2024) 
 | E4 pair evidence | C-class needs pair confirmation | individual-only | +seat-graph | pair-event P/R | P↑ at equal R |
 | E5 abstention | abstain beats guessing | forced-decision | +visibility gate | FP on occluded set | FPs→~0, coverage reported |
 | E6 phone temporal | multi-frame confirm cuts obj FPs | single-frame | N-of-M | obj FP/hr | ≥50%↓ |
+| E7 gaze-mass vs yaw | Gaze-LLE gates beat yaw-sector gates on Tier A/B | kpt-yaw rules | gaze-mass rules (§13A.2) | event P/R, FP/student-hr, per-row heatmap-quality score | P↑ at equal R on Tier A/B; documented per-tier capability table |
+| E8 leakage detection | D1 finds the copied-FROM desk in scripted pair events | none (novel) | attention-field aggregation | leak-desk top-K hit-rate on scripted copy events | copied desk in top-2 LeakRank ≥70% of scripted runs |
 
 **G. Hackathon Checklist**
 | Requirement | Implementation | Judge evidence | Status |
@@ -704,18 +803,20 @@ Verified this session: RTMPose — arxiv.org/abs/2303.07399 · RTMO (CVPR 2024) 
 All 20 mandatory objectives mapped (§3) · multi-student physical-hall focus maintained · no facial-recognition dependency · non-accusatory language enforced (§14) · three proven add-ons cited (§11) · novel USPs separated with logged prior-art searches (§9) · dataset licenses flagged where unconfirmed (§8) · vendor claims labelled · FP/student-hour + event metrics + HOTA/IDF1 + abstention + occlusion + lighting + network/hardware failure + privacy all addressed · MVP, benchmark strategy, and live-demo plan provided · **no source or number fabricated; every unverified item is labelled**. Remaining top-5 weaknesses + mitigations: §34.
 
 # Exactly What Our Team Should Build First
-1. `pip install` rtmlib, ultralytics, supervision, fastapi; webcam→pose skeleton on screen (hour 0–3).
+0. **HOUR 0 GO/NO-GO: run Gaze-LLE (HF Space or Colab) on 5 stills of your own mock hall — front row, row 4, row 8. Decide per-row Tier capability before writing any other gaze code (0–2).** If NO-GO beyond row 2: DAF ships as Tier-A beams + demo weapon only; everything else below is unchanged.
+1. `pip install` rtmlib, ultralytics, supervision, fastapi (+ torch-hub gazelle ckpt); webcam→pose skeleton on screen (hour 0–3).
 2. Seat-polygon editor (click 6 seats on a frame) + ByteTrack + seat-anchor assignment (3–9).
-3. Head-yaw proxy from nose/ear/shoulder keypoints; log per-seat yaw stream (9–13).
-4. Rule engine B1/B2/B4 with durations+repetitions; print events to console (13–19).
-5. Per-seat baseline stats; thresholds become baseline-relative (19–22).
+3. **Gaze-LLE integration: head boxes from pose keypoints → batched heatmaps @4–6 Hz → per-seat gaze-mass vectors logged per frame; head-yaw proxy kept as parallel fallback stream (9–14).**
+4. Rule engine B1/B2/B4 gated on gaze-mass (Tier A/B) / yaw (Tier C), durations+repetitions; print events to console (14–19).
+5. Per-seat baseline stats — scalar durations + D4 attention-fingerprint distribution; thresholds become baseline-relative (19–22).
 6. FastAPI + WebSocket + SQLite; events flow to a bare React alert list (22–28).
-7. Seat map + alert cards with the 14 fields + counterfactual strings (28–36).
-8. Phone detector fine-tune on SCB; temporal confirmation; object alerts (36–41).
-9. Seat-graph pair correlator C1/C2/C4; two-volunteer rehearsal (41–48).
-10. Visibility score + abstention + grey-seat state; 6DRepNet on Tier-A crops (48–52).
-11. Skeleton-only toggle + replay modal + dismiss-feedback logging (52–58).
-12. Record scripted mini-benchmark; measure FP/student-hr, recall; put the numbers on the slide (58–66).
-13. Record backup demo video; rehearse 3-min script twice; freeze code (66–72).
+7. Seat map + alert cards with the 14 fields + counterfactual strings (now carrying gaze-mass numbers) (28–36).
+8. **D6 Attention Lens: beam overlay + room heat map + D1 desk-leakage panel in the dashboard — the demo centerpiece (36–41).**
+9. Phone detector fine-tune on SCB; temporal confirmation; object alerts (41–45).
+10. Seat-graph pair correlator C1/C2/C4 on gaze-mass edges; two-volunteer rehearsal; D2 lookout only if rehearsal time remains (45–52).
+11. Visibility score + abstention + grey-seat state; 6DRepNet Tier-A cross-check only if time (52–56).
+12. Skeleton-only toggle + replay modal (skeletons + beams) + dismiss-feedback logging (56–60).
+13. Record scripted mini-benchmark incl. E7/E8; measure FP/student-hr, recall, LeakRank hit-rate; put the numbers on the slide (60–68).
+14. Record backup demo video; rehearse 3-min script twice; freeze code (68–72).
 
 *End of dossier.*
