@@ -1,0 +1,350 @@
+{
+  "/": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "VIGIL — Explainable AI for Physical Examination Halls"
+      },
+      "screenshot": "visual-baselines/home-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "VIGIL — Explainable AI for Physical Examination Halls"
+      },
+      "screenshot": "visual-baselines/home-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "VIGIL — Explainable AI for Physical Examination Halls"
+      },
+      "screenshot": "visual-baselines/home-desktop-1440x1000.png"
+    }
+  },
+  "/drishti": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Drishti Attention Field — VIGIL"
+      },
+      "screenshot": "visual-baselines/_drishti-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Drishti Attention Field — VIGIL"
+      },
+      "screenshot": "visual-baselines/_drishti-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Drishti Attention Field — VIGIL"
+      },
+      "screenshot": "visual-baselines/_drishti-desktop-1440x1000.png"
+    }
+  },
+  "/seat-graph": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Seat-Graph Evidence Fusion — VIGIL"
+      },
+      "screenshot": "visual-baselines/_seat-graph-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Seat-Graph Evidence Fusion — VIGIL"
+      },
+      "screenshot": "visual-baselines/_seat-graph-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Seat-Graph Evidence Fusion — VIGIL"
+      },
+      "screenshot": "visual-baselines/_seat-graph-desktop-1440x1000.png"
+    }
+  },
+  "/research": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Research — VIGIL"
+      },
+      "screenshot": "visual-baselines/_research-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Research — VIGIL"
+      },
+      "screenshot": "visual-baselines/_research-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Research — VIGIL"
+      },
+      "screenshot": "visual-baselines/_research-desktop-1440x1000.png"
+    }
+  },
+  "/deployment": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Deployment — VIGIL"
+      },
+      "screenshot": "visual-baselines/_deployment-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Deployment — VIGIL"
+      },
+      "screenshot": "visual-baselines/_deployment-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Deployment — VIGIL"
+      },
+      "screenshot": "visual-baselines/_deployment-desktop-1440x1000.png"
+    }
+  },
+  "/privacy": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Privacy — VIGIL"
+      },
+      "screenshot": "visual-baselines/_privacy-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Privacy — VIGIL"
+      },
+      "screenshot": "visual-baselines/_privacy-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Privacy — VIGIL"
+      },
+      "screenshot": "visual-baselines/_privacy-desktop-1440x1000.png"
+    }
+  },
+  "/demo": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Interactive Demo — VIGIL"
+      },
+      "screenshot": "visual-baselines/_demo-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Interactive Demo — VIGIL"
+      },
+      "screenshot": "visual-baselines/_demo-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Interactive Demo — VIGIL"
+      },
+      "screenshot": "visual-baselines/_demo-desktop-1440x1000.png"
+    }
+  },
+  "/roadmap": {
+    "mobile-390x844": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Roadmap — VIGIL"
+      },
+      "screenshot": "visual-baselines/_roadmap-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Roadmap — VIGIL"
+      },
+      "screenshot": "visual-baselines/_roadmap-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Roadmap — VIGIL"
+      },
+      "screenshot": "visual-baselines/_roadmap-desktop-1440x1000.png"
+    }
+  },
+  "/this-route-does-not-exist": {
+    "mobile-390x844": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "title": "Seat not found — VIGIL"
+      },
+      "screenshot": "visual-baselines/_this-route-does-not-exist-mobile-390x844.png"
+    },
+    "tablet-768x1024": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "title": "Seat not found — VIGIL"
+      },
+      "screenshot": "visual-baselines/_this-route-does-not-exist-tablet-768x1024.png"
+    },
+    "desktop-1440x1000": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "checks": {
+        "h1Count": 1,
+        "imgsWithoutAlt": 0,
+        "horizontalOverflow": false,
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "title": "Seat not found — VIGIL"
+      },
+      "screenshot": "visual-baselines/_this-route-does-not-exist-desktop-1440x1000.png"
+    }
+  }
+}

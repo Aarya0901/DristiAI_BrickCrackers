@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* ============================================================
+   VIGIL DESIGN TOKENS
+   Single source of truth for color, type, space, motion, grid.
+   See docs/design-system.md for rationale behind every value.
+   ============================================================ */
+
+:root {
+  /* ---- color: surfaces & ink ---- */
+  --bg-canvas: #f2f4f3; /* cold off-white */
+  --bg-inverse: #0a0d10; /* near-black, dark sections/footer */
+  --surface-1: #ffffff; /* card / panel surface on canvas */
+  --surface-2: #e7eaea; /* secondary panel, recessed */
+  --surface-inverse-2: #12161a; /* recessed panel inside dark sections */
+  --ink-primary: #0b0f12; /* near-black text */
+  --ink-secondary: #565f68; /* muted blue-grey text */
+  --ink-inverse: #eef1f2; /* text on dark surfaces */
+  --ink-inverse-secondary: #9aa3ac;
+  --line-subtle: #d7dcdd; /* hairline on light surfaces */
+  --line-strong: #0b0f12; /* strong outer frame on light surfaces */
+  --line-inverse: #2a3038; /* hairline on dark surfaces */
+
+  /* ---- color: semantic accents (meaning, not decoration) ---- */
+  --brand-cobalt: #3652e3; /* primary interactive accent: links, CTAs, focus */
+  --brand-cobalt-ink: #1d2f9e; /* pressed/active */
+  --attention: #1fd6e0; /* bright cyan: Drishti attention field */
+  --attention-soft: #c9f6f8; /* attention tint on light surfaces */
+  --review: #e2a53d; /* amber: review-required state */
+  --review-soft: #f8e6c4;
+  --high-review: #d1483f; /* muted red: high-priority review only */
+  --high-review-soft: #f2d3cf;
+  --healthy: #4c8f6a; /* desaturated green: normal/healthy system state */
+  --healthy-soft: #d7e9dd;
+  --unobservable: #8b93a0; /* neutral grey: visibility insufficient (never red) */
+  --unobservable-soft: #e4e7ea;
+
+  /* ---- typography ---- */
+  --font-sans: var(--font-sans, "Geist", ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-mono, "IBM Plex Mono", ui-monospace, monospace);
+
+  --text-hero: clamp(3.25rem, 1.7rem + 5.2vw, 7rem);
+  --text-section: clamp(2.375rem, 1.9rem + 2.8vw, 4.75rem);
+  --text-heading-lg: clamp(1.75rem, 1.5rem + 1.2vw, 2.5rem);
+  --text-heading-md: clamp(1.375rem, 1.2rem + 0.6vw, 1.75rem);
+  --text-body-lg: clamp(1.0625rem, 1rem + 0.25vw, 1.25rem);
+  --text-body: clamp(1rem, 0.95rem + 0.15vw, 1.125rem);
+  --text-label: clamp(0.6875rem, 0.66rem + 0.1vw, 0.8125rem);
+
+  --lh-tight: 1.03;
+  --lh-snug: 1.15;
+  --lh-normal: 1.45;
+  --lh-loose: 1.6;
+
+  --tracking-tight: -0.045em;
+  --tracking-snug: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.08em;
+  --tracking-widest: 0.16em;
+
+  /* ---- spacing (4px base) ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+  --space-10: 8rem;
+  --space-11: 10rem;
+  --space-12: 12rem;
+
+  /* ---- grid & layout ---- */
+  --content-max: 1280px;
+  --content-pad: clamp(1.25rem, 1rem + 1.5vw, 2.5rem);
+  --section-pad-y: clamp(4rem, 3rem + 5vw, 8.75rem);
+  --grid-cols: 12;
+  --grid-gap: clamp(1rem, 0.75rem + 1vw, 1.5rem);
+
+  /* ---- borders & radii ---- */
+  --border-thin: 1px;
+  --border-thick: 2px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* ---- motion ----
+     Two curves only, matched from the live-reference audit:
+     snap = instant micro-feedback (hover/focus/press)
+     reveal = content entrance (scroll reveal, section transitions) */
+  --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-reveal: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-snap: 160ms;
+  --duration-reveal: 620ms;
+  --duration-page: 650ms;
+}
+
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-inverse: var(--bg-inverse);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-inverse-2: var(--surface-inverse-2);
+  --color-ink-primary: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-ink-inverse-secondary: var(--ink-inverse-secondary);
+  --color-line-subtle: var(--line-subtle);
+  --color-line-strong: var(--line-strong);
+  --color-line-inverse: var(--line-inverse);
+  --color-brand-cobalt: var(--brand-cobalt);
+  --color-brand-cobalt-ink: var(--brand-cobalt-ink);
+  --color-attention: var(--attention);
+  --color-attention-soft: var(--attention-soft);
+  --color-review: var(--review);
+  --color-review-soft: var(--review-soft);
+  --color-high-review: var(--high-review);
+  --color-high-review-soft: var(--high-review-soft);
+  --color-healthy: var(--healthy);
+  --color-healthy-soft: var(--healthy-soft);
+  --color-unobservable: var(--unobservable);
+  --color-unobservable-soft: var(--unobservable-soft);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  border-color: var(--line-subtle);
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-normal);
+}
+
+::selection {
+  background: var(--brand-cobalt);
+  color: var(--ink-inverse);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-inverse);
+  color: var(--ink-inverse);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.skip-link:focus {
+  left: var(--space-4);
+  top: var(--space-4);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-cobalt);
+  outline-offset: 2px;
+}
+
+/* Shared numeric/tabular rendering for metrics, timestamps, coordinates */
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
