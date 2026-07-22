@@ -1,0 +1,72 @@
+[
+  {
+    "image": "hall_00.jpg",
+    "label": "front",
+    "head_px_size_approx": 70.0,
+    "peak_heatmap_value": 0.8474,
+    "inout_score": 0.9994
+  },
+  {
+    "image": "hall_00.jpg",
+    "label": "mid",
+    "head_px_size_approx": 60.0,
+    "peak_heatmap_value": 0.8473,
+    "inout_score": 0.9992
+  },
+  {
+    "image": "hall_00.jpg",
+    "label": "back",
+    "head_px_size_approx": 60.0,
+    "peak_heatmap_value": 0.8323,
+    "inout_score": 0.9968
+  },
+  {
+    "image": "hall_00.jpg",
+    "label": "teacher_frontal",
+    "head_px_size_approx": 75.0,
+    "peak_heatmap_value": 0.491,
+    "inout_score": 0.7636
+  },
+  {
+    "image": "hall_02.jpg",
+    "label": "front",
+    "head_px_size_approx": 80.0,
+    "peak_heatmap_value": 0.28,
+    "inout_score": 0.9385
+  },
+  {
+    "image": "hall_02.jpg",
+    "label": "mid",
+    "head_px_size_approx": 60.0,
+    "peak_heatmap_value": 0.1884,
+    "inout_score": 0.981
+  },
+  {
+    "image": "hall_02.jpg",
+    "label": "back",
+    "head_px_size_approx": 55.0,
+    "peak_heatmap_value": 0.2534,
+    "inout_score": 0.9606
+  },
+  {
+    "image": "hall_12.jpg",
+    "label": "front",
+    "head_px_size_approx": 65.0,
+    "peak_heatmap_value": 0.3251,
+    "inout_score": 0.7912
+  },
+  {
+    "image": "hall_12.jpg",
+    "label": "mid",
+    "head_px_size_approx": 55.0,
+    "peak_heatmap_value": 0.7476,
+    "inout_score": 0.9717
+  },
+  {
+    "image": "hall_12.jpg",
+    "label": "back",
+    "head_px_size_approx": 45.0,
+    "peak_heatmap_value": 0.4137,
+    "inout_score": 0.7612
+  }
+]

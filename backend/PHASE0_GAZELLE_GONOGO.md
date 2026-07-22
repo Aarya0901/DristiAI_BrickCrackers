@@ -62,6 +62,33 @@ keypoint-yaw as the fallback/cross-check on all tiers as the spec already mandat
 your own recorded hall footage (§18) is still required before trusting this for the live demo — this test
 only clears the hour-0 gate on borrowed classroom photos, it does not replace the scripted mini-benchmark.
 
+## Addendum (same day) — re-validated on REAL exam-hall CCTV footage
+
+The test above used borrowed classroom stock photos, not real hall geometry — flagged as a caveat
+at the time. Found a much better source since: **CCTV Exam Monitor Dataset** (Kaggle,
+`cctvdataset/cctv-exam-monitor-dataset`, **CC0 Public Domain**, no login required to download) —
+8,156 real frames from fisheye CCTV cameras mounted in actual university exam halls/computer labs,
+timestamped, multiple rooms, already anonymized. 30 curated into `backend/data/samples/`, full set
+kept locally (gitignored, too large to push — see `backend/data/README.md`).
+
+Re-ran the same go/no-go test on 3 of these real frames (`backend/gazelle_test_real/`), 10 head
+boxes across front/mid/back rows, including one lap-board exam hall with real students-at-a-distance
+(no desks, individual clipboards) and a computer-lab exam (monitors, rear-view heads only):
+
+| Image | Tier | Head px | Peak | in-frame | Verdict |
+|---|---|---|---|---|---|
+| hall_00 (comp. lab) | front/mid/back (all rear-view) | 60-70 | 0.83-0.85 | 0.997-0.999 | **all three converge on the standing teacher — correct** |
+| hall_00 | teacher (frontal) | 75 | 0.49 | 0.76 | weaker, as before for close frontal figures |
+| hall_02 (lecture hall) | back | 55 | 0.25 | 0.96 | correct (looks at invigilator writing on board) |
+| hall_12 (lap-board hall) | front/mid/back | 45-65 | 0.33-0.75 | 0.76-0.97 | all three land on own paper — correct, even at 45px |
+
+**This upgrades the verdict from "promising on proxies" to validated on real target geometry.**
+Peak heatmap confidence was noticeably higher on real CCTV frames (0.25-0.85) than on the classroom
+proxy photos (0.22-0.78) despite smaller head sizes in places (down to 45px) — plausibly because
+these scenes are closer to Gaze-LLE's GazeFollow/VideoAttentionTarget training distribution than
+generic classroom stock photos. Same caveat as before: 3 images, 10 boxes, not a calibrated
+benchmark — but this is now real hall footage, not a proxy.
+
 ## Environment notes for the team
 
 - Windows + OneDrive-nested paths hit `WinError 206` (filename too long) installing torch, because torch's

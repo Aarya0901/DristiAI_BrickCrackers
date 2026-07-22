@@ -1,0 +1,257 @@
+[
+  {
+    "image": "tier_front_1.jpg",
+    "label": "front",
+    "head_bbox_px": [
+      250,
+      180,
+      330,
+      280
+    ],
+    "head_px_size_approx": 90.0,
+    "peak_heatmap_value": 0.3029,
+    "peak_target_px": [
+      410.0,
+      367.5
+    ],
+    "inout_score": 0.1875
+  },
+  {
+    "image": "tier_front_1.jpg",
+    "label": "mid",
+    "head_bbox_px": [
+      430,
+      130,
+      490,
+      190
+    ],
+    "head_px_size_approx": 60.0,
+    "peak_heatmap_value": 0.3265,
+    "peak_target_px": [
+      290.0,
+      210.0
+    ],
+    "inout_score": 0.5565
+  },
+  {
+    "image": "tier_front_1.jpg",
+    "label": "back",
+    "head_bbox_px": [
+      330,
+      100,
+      390,
+      150
+    ],
+    "head_px_size_approx": 55.0,
+    "peak_heatmap_value": 0.2488,
+    "peak_target_px": [
+      270.0,
+      217.5
+    ],
+    "inout_score": 0.5602
+  },
+  {
+    "image": "tier_front_2.jpg",
+    "label": "front",
+    "head_bbox_px": [
+      130,
+      250,
+      210,
+      330
+    ],
+    "head_px_size_approx": 80.0,
+    "peak_heatmap_value": 0.4341,
+    "peak_target_px": [
+      350.0,
+      337.5
+    ],
+    "inout_score": 0.6724
+  },
+  {
+    "image": "tier_front_2.jpg",
+    "label": "mid",
+    "head_bbox_px": [
+      280,
+      150,
+      340,
+      210
+    ],
+    "head_px_size_approx": 60.0,
+    "peak_heatmap_value": 0.3299,
+    "peak_target_px": [
+      350.0,
+      323.4
+    ],
+    "inout_score": 0.2509
+  },
+  {
+    "image": "tier_front_2.jpg",
+    "label": "back",
+    "head_bbox_px": [
+      250,
+      90,
+      300,
+      140
+    ],
+    "head_px_size_approx": 50.0,
+    "peak_heatmap_value": 0.2816,
+    "peak_target_px": [
+      237.5,
+      168.8
+    ],
+    "inout_score": 0.4514
+  },
+  {
+    "image": "tier_mixed_1.jpg",
+    "label": "front",
+    "head_bbox_px": [
+      130,
+      340,
+      220,
+      410
+    ],
+    "head_px_size_approx": 80.0,
+    "peak_heatmap_value": 0.3721,
+    "peak_target_px": [
+      240.0,
+      345.0
+    ],
+    "inout_score": 0.8428
+  },
+  {
+    "image": "tier_mixed_1.jpg",
+    "label": "mid",
+    "head_bbox_px": [
+      280,
+      270,
+      350,
+      330
+    ],
+    "head_px_size_approx": 65.0,
+    "peak_heatmap_value": 0.464,
+    "peak_target_px": [
+      340.0,
+      120.0
+    ],
+    "inout_score": 0.9781
+  },
+  {
+    "image": "tier_mixed_1.jpg",
+    "label": "back",
+    "head_bbox_px": [
+      290,
+      210,
+      330,
+      240
+    ],
+    "head_px_size_approx": 35.0,
+    "peak_heatmap_value": 0.2226,
+    "peak_target_px": [
+      500.0,
+      150.0
+    ],
+    "inout_score": 0.8903
+  },
+  {
+    "image": "tier_mixed_2.jpg",
+    "label": "front",
+    "head_bbox_px": [
+      340,
+      225,
+      400,
+      290
+    ],
+    "head_px_size_approx": 62.5,
+    "peak_heatmap_value": 0.7762,
+    "peak_target_px": [
+      320.0,
+      270.0
+    ],
+    "inout_score": 0.9912
+  },
+  {
+    "image": "tier_mixed_2.jpg",
+    "label": "mid",
+    "head_bbox_px": [
+      210,
+      150,
+      260,
+      195
+    ],
+    "head_px_size_approx": 47.5,
+    "peak_heatmap_value": 0.5651,
+    "peak_target_px": [
+      160.0,
+      187.5
+    ],
+    "inout_score": 0.9842
+  },
+  {
+    "image": "tier_mixed_2.jpg",
+    "label": "back",
+    "head_bbox_px": [
+      480,
+      110,
+      520,
+      148
+    ],
+    "head_px_size_approx": 39.0,
+    "peak_heatmap_value": 0.5707,
+    "peak_target_px": [
+      460.0,
+      157.5
+    ],
+    "inout_score": 0.7256
+  },
+  {
+    "image": "tier_mixed_3.jpg",
+    "label": "near_rear_1",
+    "head_bbox_px": [
+      130,
+      700,
+      230,
+      800
+    ],
+    "head_px_size_approx": 100.0,
+    "peak_heatmap_value": 0.7243,
+    "peak_target_px": [
+      540.0,
+      489.4
+    ],
+    "inout_score": 0.968
+  },
+  {
+    "image": "tier_mixed_3.jpg",
+    "label": "near_rear_2",
+    "head_bbox_px": [
+      700,
+      650,
+      800,
+      740
+    ],
+    "head_px_size_approx": 95.0,
+    "peak_heatmap_value": 0.5646,
+    "peak_target_px": [
+      1110.0,
+      286.9
+    ],
+    "inout_score": 0.9972
+  },
+  {
+    "image": "tier_mixed_3.jpg",
+    "label": "near_frontal_teacher",
+    "head_bbox_px": [
+      500,
+      470,
+      590,
+      560
+    ],
+    "head_px_size_approx": 90.0,
+    "peak_heatmap_value": 0.4279,
+    "peak_target_px": [
+      660.0,
+      691.9
+    ],
+    "inout_score": 0.7556
+  }
+]

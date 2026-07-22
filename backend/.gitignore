@@ -5,9 +5,12 @@ gazelle_repo/
 gazelle_test/*.jpg
 gazelle_test/grid/
 gazelle_test/out/
+gazelle_test_real/*.jpg
+gazelle_test_real/out/
 *.pt
 *.onnx
 *.mp4
 out_phase*_events.json
 test_video_raw.mp4
 out_phase2_preview_*.jpg
+data/*.zip
