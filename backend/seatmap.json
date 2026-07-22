@@ -1,0 +1,27 @@
+{
+  "video": "test_video_raw.mp4",
+  "resolution": [1920, 1080],
+  "note": "Hand-defined seat polygons for the Phase-1 stock-video test. In production these are drawn per-camera during setup (one-time), matching real desk footprints. Coordinates are pixel (x,y) in source-frame space.",
+  "seats": [
+    {
+      "seat_id": "A1",
+      "polygon": [[0, 550], [290, 550], [290, 1080], [0, 1080]]
+    },
+    {
+      "seat_id": "A2",
+      "polygon": [[210, 430], [430, 430], [430, 720], [210, 720]]
+    },
+    {
+      "seat_id": "A3",
+      "polygon": [[400, 400], [630, 400], [630, 700], [400, 700]]
+    },
+    {
+      "seat_id": "B1",
+      "polygon": [[1230, 480], [1850, 480], [1850, 1080], [1230, 1080]]
+    },
+    {
+      "seat_id": "B2",
+      "polygon": [[1680, 500], [1920, 500], [1920, 1080], [1680, 1080]]
+    }
+  ]
+}

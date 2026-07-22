@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+gazelle_repo/
+gazelle_test/*.jpg
+gazelle_test/grid/
+gazelle_test/out/
+*.pt
+*.onnx
+*.mp4
+out_phase*_events.json
+test_video_raw.mp4
+out_phase2_preview_*.jpg
