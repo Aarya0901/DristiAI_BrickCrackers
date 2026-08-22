@@ -9,11 +9,14 @@ import sys
 import torch
 from PIL import Image, ImageDraw
 
-sys.path.insert(0, "V:/backend/gazelle_repo")
+from pathlib import Path
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BACKEND_DIR / "gazelle_repo"))
 from gazelle.model import get_gazelle_model
 
-IMG_DIR = "V:/backend/gazelle_test_real"
-OUT_DIR = "V:/backend/gazelle_test_real/out"
+IMG_DIR = str(Path(__file__).resolve().parent)
+OUT_DIR = str(Path(__file__).resolve().parent / "out")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 CKPT_URL = "https://github.com/fkryan/gazelle/releases/download/v1.0.0/gazelle_dinov2_vitb14_inout.pt"

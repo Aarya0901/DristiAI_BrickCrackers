@@ -15,9 +15,12 @@ import numpy as np
 from rtmlib import RTMPose, draw_skeleton
 from ultralytics import YOLO
 
-VIDEO_IN = "V:/backend/test_video_raw.mp4"
-VIDEO_OUT = "V:/backend/out_phase1_skeleton.mp4"
-JSON_OUT = "V:/backend/out_phase1_events.json"
+from pathlib import Path
+
+BACKEND_DIR = Path(__file__).resolve().parent
+VIDEO_IN = str(BACKEND_DIR / "test_video_raw.mp4")
+VIDEO_OUT = str(BACKEND_DIR / "out_phase1_skeleton.mp4")
+JSON_OUT = str(BACKEND_DIR / "out_phase1_events.json")
 
 RTMPOSE_M_URL = (
     "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
@@ -31,7 +34,8 @@ DEVICE = "cuda"
 
 def main():
     print("loading YOLO11-s (person detector, AGPL-3.0)...")
-    yolo = YOLO("yolo11s.pt")
+    yolo_weights = str(BACKEND_DIR / "yolo11s.pt") if (BACKEND_DIR / "yolo11s.pt").exists() else "yolo11s.pt"
+    yolo = YOLO(yolo_weights)
 
     print("loading RTMPose-m (rtmlib/ONNX, Apache-2.0)...")
     pose_model = RTMPose(
