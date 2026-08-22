@@ -35,6 +35,7 @@ import asyncio
 import json
 import time
 from collections import deque
+from pathlib import Path
 from typing import Any, Deque, Dict, Generator, List, Optional, Tuple
 
 import numpy as np
@@ -46,7 +47,7 @@ except ImportError as exc:  # pragma: no cover - OpenCV is a hard requirement
         "backend.behavior_pipeline requires opencv-python (`pip install opencv-python`)."
     ) from exc
 
-from backend.seat_anchor import SeatAnchorTracker, STATE_LOST, STATE_OCCLUDED_HOLD
+from backend.seat_anchor import SeatAnchorTracker, STATE_LOST, STATE_OCCLUDED_HOLD, auto_generate_seatmap
 from backend.calibrated_abstention import CalibratedAbstentionGate
 from backend.desk_leakage import DeskLeakageDetector, LEAKAGE_TYPE_NONE
 
@@ -217,15 +218,26 @@ class BehaviorPipeline:
 
     def __init__(
         self,
-        seatmap_path: str = DEFAULT_SEATMAP_PATH,
+        seatmap_path: Optional[str] = DEFAULT_SEATMAP_PATH,
         model_path: str = DEFAULT_MODEL_PATH,
         yaw_threshold_deg: float = DEFAULT_YAW_THRESHOLD_DEG,
         yaw_sustained_frames: int = DEFAULT_SUSTAINED_FRAMES,
     ) -> None:
         self.detector = PoseDetector(model_path=model_path)
+        self.seatmap_path = seatmap_path
 
-        # Composed subsystems -- each is one of the 8 modules, used as-is.
-        self.seat_tracker = SeatAnchorTracker(seatmap_path=seatmap_path)
+        # If 'auto' or file does not exist, initialize seat_tracker dynamically on first frame
+        self.auto_seatmap = (
+            seatmap_path is None
+            or seatmap_path == "auto"
+            or not Path(str(seatmap_path)).exists()
+        )
+
+        if self.auto_seatmap:
+            self.seat_tracker = None
+        else:
+            self.seat_tracker = SeatAnchorTracker(seatmap=seatmap_path)
+
         self.abstention_gate = CalibratedAbstentionGate()
         self.leakage_detector = DeskLeakageDetector()
 
@@ -285,6 +297,20 @@ class BehaviorPipeline:
 
         detections = self.detector.detect(frame)
         det_payload = [{"bbox": d["bbox"], "conf": d.get("conf", 0.0)} for d in detections]
+
+        # Dynamic Auto-Seatmap initialization on initial frame with detections
+        if self.seat_tracker is None or (self.auto_seatmap and len(self.seat_tracker.seats) == 0):
+            if det_payload:
+                bboxes = [d["bbox"] for d in det_payload]
+                auto_map = auto_generate_seatmap(bboxes, frame_shape=frame.shape[:2])
+                self.seat_tracker = SeatAnchorTracker(seatmap=auto_map)
+            else:
+                return annotated, records
+
+        # Draw static seat polygons for visual clarity
+        for seat_id, seat in self.seat_tracker.seats.items():
+            poly_pts = np.asarray(seat.polygon, dtype=np.int32).reshape((-1, 1, 2))
+            cv2.polylines(annotated, [poly_pts], isClosed=True, color=(180, 180, 180), thickness=1)
 
         # 1) Seat anchoring / tracking (SeatAnchorTracker owns occlusion hold
         #    + contention resolution; we no longer duplicate that logic here).
@@ -517,7 +543,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="VIGIL real-time behaviour monitoring pipeline")
     parser.add_argument("--source", default=0, help="Video source: webcam index, file path, or RTSP URL")
-    parser.add_argument("--seatmap", default=DEFAULT_SEATMAP_PATH, help="Path to seatmap.json")
+    parser.add_argument("--seatmap", default="auto", help="Path to seatmap.json or 'auto' to generate dynamically on frame 0")
     parser.add_argument("--model", default=DEFAULT_MODEL_PATH, help="Path/name of YOLOv8n-pose weights")
     parser.add_argument("--display", action="store_true", help="Show annotated stream in a window")
     parser.add_argument("--out", default=None, help="Path to append per-frame JSONL output")
