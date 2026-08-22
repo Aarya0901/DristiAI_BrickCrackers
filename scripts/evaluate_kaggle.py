@@ -103,16 +103,26 @@ def evaluate_video(video_path: str, pose_model, behavior_model):
     # Reset video to start
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     
-    # Limit frames per video to keep evaluation time reasonable (e.g. max 300 frames)
-    MAX_FRAMES = 300
+    # Limit frames per video to keep evaluation time reasonable
+    # Let's process up to 600 frames, but we'll skip every 3 frames 
+    # so we cover 1800 frames of actual video time (60 seconds).
+    MAX_PROCESSED_FRAMES = 600
+    frames_processed = 0
+    frame_idx = 0
     
     while True:
         ok, frame = cap.read()
-        if not ok or frame_idx >= MAX_FRAMES:
+        if not ok or frames_processed >= MAX_PROCESSED_FRAMES:
             break
             
-        timestamp = frame_idx / 30.0
         frame_idx += 1
+        
+        # Skip frames to cover more video time faster
+        if frame_idx % 3 != 0:
+            continue
+            
+        timestamp = frame_idx / 30.0
+        frames_processed += 1
         
         # A. Raw YOLO Behavior Detection (The Baseline)
         behav_results = behavior_model.predict(frame, verbose=False)
