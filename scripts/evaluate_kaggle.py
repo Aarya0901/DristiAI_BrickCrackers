@@ -102,9 +102,13 @@ def main():
     parser.add_argument("--out", default="evaluation_report.json")
     args = parser.parse_args()
     
-    videos = glob.glob(os.path.join(args.dataset_dir, "**/*.mp4"), recursive=True)
+    # Look for common video formats
+    videos = []
+    for ext in ("*.mp4", "*.avi", "*.mov", "*.mkv"):
+        videos.extend(glob.glob(os.path.join(args.dataset_dir, "**", ext), recursive=True))
+        
     if not videos:
-        print(f"No .mp4 videos found in {args.dataset_dir}")
+        print(f"No video files found in {args.dataset_dir}")
         
         # Provide fallback dummy loop so you can test it even without videos
         videos = ["mock_video_1.mp4", "mock_video_2.mp4"]
