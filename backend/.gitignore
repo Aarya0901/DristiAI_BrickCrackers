@@ -16,3 +16,11 @@ out_phase2_preview_*.jpg
 data/*.zip
 out_phase4_*
 runs/
+datasets/
+*pth
+backend/previews/
+*.gif
+node_modules/
+.next/
+.env
+.pem
