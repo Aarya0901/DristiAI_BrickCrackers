@@ -15,9 +15,9 @@ import numpy as np
 from rtmlib import RTMPose, draw_skeleton
 from ultralytics import YOLO
 
-VIDEO_IN = "V:/backend/test_video_raw.mp4"
-VIDEO_OUT = "V:/backend/out_phase1_skeleton.mp4"
-JSON_OUT = "V:/backend/out_phase1_events.json"
+VIDEO_IN = "test_video_raw.mp4"
+VIDEO_OUT = "out_phase1_skeleton.mp4"
+JSON_OUT = "out_phase1_events.json"
 
 RTMPOSE_M_URL = (
     "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
