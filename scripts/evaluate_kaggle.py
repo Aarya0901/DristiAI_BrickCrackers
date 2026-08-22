@@ -12,7 +12,11 @@ import argparse
 import glob
 import json
 import os
+import sys
 import time
+
+# Add the parent directory (project root) to PYTHONPATH so we can import 'backend'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.memory_engine import SeatMemoryEngine
 from backend.cheat_sync import CheatSyncEngine
