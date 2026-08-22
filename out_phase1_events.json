@@ -1,0 +1,11 @@
+{
+  "source_video": "test_video_raw.mp4",
+  "fps": -1.0,
+  "resolution": [
+    -1,
+    -1
+  ],
+  "total_frames": 0,
+  "pipeline_fps_measured": 0.0,
+  "frames": []
+}

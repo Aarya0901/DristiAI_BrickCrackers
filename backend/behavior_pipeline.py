@@ -1,326 +1,533 @@
 """
-VIGIL backend - Phase 4: behavior-event layer on top of the tracked pipeline.
+backend/behavior_pipeline.py
 
-Extends the Phase 2 stack (YOLO11-s person detection + ByteTrack + seat-anchor
-snapping) with a SECOND detector: the 4-class Vigil behavior model (trained on
-SCB, reduced taxonomy per the 2026-07-23 scope decision).
+BehaviorPipeline: real-time, edge-optimized exam-monitoring perception
+pipeline for the Drishti AI / VIGIL project.
 
-Architecture:
-  person detector (COCO YOLO11-s) -> ByteTrack -> seat snapping
-  behavior detector (4-class)     -> per-frame behavior boxes
-  IoU association                 -> behavior events attached to track_id + seat_id
-  sliding-window aggregation      -> review_candidate signals (NOT cheating labels)
+This is the composition root for four of the eight modules:
+  - PoseDetector (defined here)         : person + 17 COCO keypoint detection
+  - SeatAnchorTracker  (seat_anchor.py) : bbox -> seat_id assignment + tracking
+  - CalibratedAbstentionGate (calibrated_abstention.py) : visibility gating
+  - DeskLeakageDetector (desk_leakage.py) : boundary-excursion detection
 
-The behavior taxonomy (4 classes):
-  0 person, 1 leaning_forward, 2 hand_signal, 3 normal_exam_activity.
+Rather than reimplementing seat-matching / occlusion-handling /
+desk-leakage / confidence-gating inline (as earlier drafts did), this file
+now delegates each of those responsibilities to its dedicated module, so
+there is exactly one implementation of each behaviour in the codebase.
 
-DROPPED CLASSES (2026-07-23 scope decision):
-  - looking_left: 0.100 mAP50 on test; box detection is the wrong representation
-    for head orientation. Head direction is owned by Gaze-LLE (primary, Tier A/B)
-    and keypoint-geometry yaw (fallback, all tiers). See Drishti AI dossier §13A/§16.
-  - talking: 0.059 mAP50 on test despite 3,780 train instances; mouth-movement is
-    not box-detectable at CCTV resolution. Future: pairwise head-proximity heuristic.
-
-MODEL PERFORMANCE (test, 4-class 35 epochs, vigil_yolo_4cls_best.pt):
-  mAP50=0.388  mAP50-95=0.280  P=0.386  R=0.571
-  hand_signal mAP50=0.570, leaning_forward mAP50=0.278, normal_exam mAP50=0.316
-
-HONESTY CONSTRAINTS:
-  - Trained on SCB classroom images, NOT exam-hall CCTV. Domain shift unvalidated.
-  - Person detection (class 0) not evaluated on this dataset (0 test instances).
-  - No GT-annotated exam video exists → real FP-per-student-hour unknown.
-  - Output is "review_candidate" — never declares cheating.
-
-Usage:
-  python backend/behavior_pipeline.py --video backend/test_video_raw.mp4 \
-      --behavior-weights vigil_yolo_4cls_best.pt
-
-LICENSE: YOLO11 (ultralytics) AGPL-3.0 prototyping only; ByteTrack (MIT);
-RTMPose (Apache-2.0).
+Two consumption modes are exposed:
+  1. `BehaviorPipeline.run(video_source)` — synchronous generator for CLI /
+     offline video use. Yields (annotated_frame, records) per frame, same
+     as before.
+  2. `stream_events(...)` — an ASYNC generator that main.py's live pipeline
+     worker imports directly (`from backend.behavior_pipeline import
+     stream_events`). It yields the raw per-seat event schema that
+     SeatMemoryEngine/CheatSyncEngine/MultiEvidenceRiskEngine expect:
+         {"seat_id", "timestamp", "keypoints", "yolo": {"class", "conf"}}
+     Camera I/O is blocking (cv2.VideoCapture.read), so it's pushed to a
+     thread via asyncio.to_thread on every frame to avoid stalling the
+     FastAPI event loop.
 """
-import argparse
+
+from __future__ import annotations
+
+import asyncio
 import json
 import time
-from collections import defaultdict, deque
+from collections import deque
+from typing import Any, Deque, Dict, Generator, List, Optional, Tuple
 
-import cv2
 import numpy as np
-import supervision as sv
-from shapely.geometry import Polygon, box
-from ultralytics import YOLO
 
-BEHAVIOR_NAMES = {
-    0: "person",
-    1: "leaning_forward",
-    2: "hand_signal",
-    3: "normal_exam_activity",
+try:
+    import cv2
+except ImportError as exc:  # pragma: no cover - OpenCV is a hard requirement
+    raise ImportError(
+        "backend.behavior_pipeline requires opencv-python (`pip install opencv-python`)."
+    ) from exc
+
+from backend.seat_anchor import SeatAnchorTracker, STATE_LOST, STATE_OCCLUDED_HOLD
+from backend.calibrated_abstention import CalibratedAbstentionGate
+from backend.desk_leakage import DeskLeakageDetector, LEAKAGE_TYPE_NONE
+
+EPS = 1e-9
+
+# COCO-17 keypoint index -> name (RTMPose / YOLOv8-pose ordering)
+COCO17_NAMES = [
+    "nose", "left_eye", "right_eye", "left_ear", "right_ear",
+    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+    "left_wrist", "right_wrist", "left_hip", "right_hip",
+    "left_knee", "right_knee", "left_ankle", "right_ankle",
+]
+
+# MediaPipe Pose (BlazePose, 33 landmarks) -> subset mapped to COCO names.
+MEDIAPIPE_TO_COCO = {
+    "nose": 0, "left_eye": 2, "right_eye": 5, "left_ear": 7, "right_ear": 8,
+    "left_shoulder": 11, "right_shoulder": 12, "left_elbow": 13, "right_elbow": 14,
+    "left_wrist": 15, "right_wrist": 16, "left_hip": 23, "right_hip": 24,
+    "left_knee": 25, "right_knee": 26, "left_ankle": 27, "right_ankle": 28,
 }
 
-# Behaviors counted toward a review_candidate. normal_exam_activity and person
-# are never flagged.
-# NOTE: looking_left removed from YOLO stage — owned by Gaze-LLE/keypoint-yaw.
-#       talking removed — mouth-movement not box-detectable at CCTV resolution.
-FLAGGED_BEHAVIORS = {"leaning_forward", "hand_signal"}
+STATUS_NORMAL = "NORMAL"
+STATUS_LEAKAGE_ANOMALY = "LEAKAGE_ANOMALY"
+STATUS_ABSTAIN = "ABSTAIN"
 
-# Window rule: >=N flagged events of the same behavior within W seconds of the
-# same seat produces one review_candidate. Deliberately conservative.
-WINDOW_SECONDS = 10.0
-MIN_EVENTS_IN_WINDOW = 3
+REASON_NONE = ""
+REASON_NO_MODEL = "NO_MODEL_AVAILABLE"
+REASON_HEAD_YAW_SUSTAINED = "SUSTAINED_HEAD_YAW"
 
-MIN_SEAT_OVERLAP_FRAC = 0.15
-IOU_ASSOCIATE_THRES = 0.30
-BEHAVIOR_CONF_THRES = 0.35
-DET_CONF_THRES = 0.4
-PERSON_CLASS_ID = 0
+DEFAULT_YAW_THRESHOLD_DEG = 45.0
+DEFAULT_SUSTAINED_FRAMES = 20  # ~0.66s @ 30 FPS
 
-SEAT_COLORS = [(255, 128, 0), (0, 200, 255), (255, 0, 200), (128, 255, 0), (0, 128, 255)]
+STATUS_COLORS = {
+    STATUS_NORMAL: (0, 200, 0),
+    STATUS_LEAKAGE_ANOMALY: (0, 0, 255),
+    STATUS_ABSTAIN: (0, 200, 255),
+}
 
-
-def parse_args():
-    p = argparse.ArgumentParser(description="VIGIL Phase 4: behavior-event pipeline")
-    p.add_argument("--video", default="backend/test_video_raw.mp4")
-    p.add_argument("--seatmap", default="backend/seatmap.json")
-    p.add_argument("--behavior-weights", required=True,
-                    help="Path to fine-tuned Vigil behavior weights (best.pt). "
-                        "Train first: python scripts/train_vigil_yolo.py")
-    p.add_argument("--person-weights", default="backend/yolo11s.pt")
-    p.add_argument("--video-out", default="backend/out_phase4_behavior.mp4")
-    p.add_argument("--json-out", default="backend/out_phase4_events.json")
-    p.add_argument("--device", default="cuda")
-    p.add_argument("--max-frames", type=int, default=0, help="0 = all frames")
-    return p.parse_args()
+DEFAULT_SEATMAP_PATH = "backend/seatmap.json"
+DEFAULT_MODEL_PATH = "yolov8n-pose.pt"
 
 
-def load_seatmap(path):
-    with open(path) as f:
-        data = json.load(f)
-    return [{"seat_id": s["seat_id"], "polygon": Polygon(s["polygon"]),
-            "polygon_pts": s["polygon"]} for s in data["seats"]]
+# --------------------------------------------------------------------------
+# Detector abstraction (YOLOv8n-pose preferred, MediaPipe fallback)
+# --------------------------------------------------------------------------
+
+class PoseDetector:
+    """
+    Thin wrapper unifying YOLOv8n-pose (ultralytics) and MediaPipe Pose
+    behind one `detect(frame) -> List[Dict]` interface. Falls back to a
+    no-op detector (everything ABSTAINs) if neither library is present,
+    so the pipeline still runs end-to-end on a bare environment.
+    """
+
+    BACKEND_YOLO = "yolov8n-pose"
+    BACKEND_MEDIAPIPE = "mediapipe"
+    BACKEND_NONE = "none"
+
+    def __init__(self, model_path: str = DEFAULT_MODEL_PATH, device: str = "cpu") -> None:
+        self.backend = self.BACKEND_NONE
+        self._model = None
+        self._mp_pose = None
+
+        try:
+            from ultralytics import YOLO  # type: ignore
+            self._model = YOLO(model_path)
+            self.backend = self.BACKEND_YOLO
+            return
+        except Exception:
+            pass
+
+        try:
+            import mediapipe as mp  # type: ignore
+            self._mp_pose = mp.solutions.pose.Pose(
+                static_image_mode=False, model_complexity=1,
+                min_detection_confidence=0.5, min_tracking_confidence=0.5,
+            )
+            self.backend = self.BACKEND_MEDIAPIPE
+        except Exception:
+            self.backend = self.BACKEND_NONE
+
+    def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+        if self.backend == self.BACKEND_YOLO:
+            return self._detect_yolo(frame)
+        if self.backend == self.BACKEND_MEDIAPIPE:
+            return self._detect_mediapipe(frame)
+        return []
+
+    def _detect_yolo(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+        results = self._model.predict(frame, verbose=False)
+        detections: List[Dict[str, Any]] = []
+        if not results:
+            return detections
+        result = results[0]
+        boxes = getattr(result, "boxes", None)
+        keypoints = getattr(result, "keypoints", None)
+        if boxes is None:
+            return detections
+
+        n = len(boxes)
+        for i in range(n):
+            xyxy = boxes.xyxy[i].tolist()
+            conf = float(boxes.conf[i]) if boxes.conf is not None else 0.0
+            kp_dict: Dict[str, Tuple[float, float, float]] = {}
+            if keypoints is not None:
+                kp_xy = keypoints.xy[i].tolist()
+                kp_conf = (
+                    keypoints.conf[i].tolist()
+                    if getattr(keypoints, "conf", None) is not None
+                    else [1.0] * len(kp_xy)
+                )
+                for idx, name in enumerate(COCO17_NAMES):
+                    if idx < len(kp_xy):
+                        x, y = kp_xy[idx]
+                        c = kp_conf[idx] if idx < len(kp_conf) else 0.0
+                        kp_dict[name] = (float(x), float(y), float(c))
+            detections.append({"bbox": [float(v) for v in xyxy], "conf": conf, "keypoints": kp_dict})
+        return detections
+
+    def _detect_mediapipe(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+        h, w = frame.shape[:2]
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        result = self._mp_pose.process(rgb)
+        if not result.pose_landmarks:
+            return []
+
+        landmarks = result.pose_landmarks.landmark
+        kp_dict: Dict[str, Tuple[float, float, float]] = {}
+        xs, ys = [], []
+        for name, idx in MEDIAPIPE_TO_COCO.items():
+            lm = landmarks[idx]
+            x, y = lm.x * w, lm.y * h
+            kp_dict[name] = (float(x), float(y), float(lm.visibility))
+            xs.append(x)
+            ys.append(y)
+
+        if not xs:
+            return []
+        bbox = [min(xs), min(ys), max(xs), max(ys)]
+        avg_visibility = float(np.mean([kp[2] for kp in kp_dict.values()]))
+        return [{"bbox": bbox, "conf": avg_visibility, "keypoints": kp_dict}]
 
 
-def snap_to_seat(bbox_xyxy, seats):
-    x1, y1, x2, y2 = bbox_xyxy
-    person_box = box(x1, y1, x2, y2)
-    person_area = person_box.area
-    if person_area <= 0:
-        return None, 0.0
-    best_seat, best_frac = None, 0.0
-    for seat in seats:
-        if not seat["polygon"].is_valid or not person_box.intersects(seat["polygon"]):
-            continue
-        frac = person_box.intersection(seat["polygon"]).area / person_area
-        if frac > best_frac:
-            best_frac, best_seat = frac, seat["seat_id"]
-    if best_frac < MIN_SEAT_OVERLAP_FRAC:
-        return None, best_frac
-    return best_seat, best_frac
+# --------------------------------------------------------------------------
+# Per-seat temporal state (head-yaw sustain counter only — everything else
+# now lives inside seat_anchor / calibrated_abstention / desk_leakage)
+# --------------------------------------------------------------------------
+
+class _SeatYawState:
+    __slots__ = ("yaw_history", "yaw_sustained_frames")
+
+    def __init__(self, history_len: int = 90) -> None:
+        self.yaw_history: Deque[float] = deque(maxlen=history_len)
+        self.yaw_sustained_frames = 0
 
 
-def iou_xyxy(a, b):
-    x1 = max(a[0], b[0]); y1 = max(a[1], b[1])
-    x2 = min(a[2], b[2]); y2 = min(a[3], b[3])
-    inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
-    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
-    union = area_a + area_b - inter
-    return inter / union if union > 0 else 0.0
+# --------------------------------------------------------------------------
+# BehaviorPipeline
+# --------------------------------------------------------------------------
 
+class BehaviorPipeline:
+    """
+    End-to-end, edge-optimized behaviour monitoring pipeline: detection ->
+    seat anchoring (SeatAnchorTracker) -> calibrated abstention gating
+    (CalibratedAbstentionGate) -> desk-leakage + head-yaw anomaly checks
+    (DeskLeakageDetector) -> annotated frame + structured JSON output.
+    """
 
-def main():
-    args = parse_args()
+    def __init__(
+        self,
+        seatmap_path: str = DEFAULT_SEATMAP_PATH,
+        model_path: str = DEFAULT_MODEL_PATH,
+        yaw_threshold_deg: float = DEFAULT_YAW_THRESHOLD_DEG,
+        yaw_sustained_frames: int = DEFAULT_SUSTAINED_FRAMES,
+    ) -> None:
+        self.detector = PoseDetector(model_path=model_path)
 
-    import os
-    if not os.path.exists(args.behavior_weights):
-        raise SystemExit(
-            f"Behavior weights not found: {args.behavior_weights}\n"
-            "Train first:  python scripts/train_vigil_yolo.py\n"
-            "Then point --behavior-weights at runs/detect/<run>/weights/best.pt"
+        # Composed subsystems -- each is one of the 8 modules, used as-is.
+        self.seat_tracker = SeatAnchorTracker(seatmap_path=seatmap_path)
+        self.abstention_gate = CalibratedAbstentionGate()
+        self.leakage_detector = DeskLeakageDetector()
+
+        self.yaw_threshold_deg = yaw_threshold_deg
+        self.yaw_sustained_frames = yaw_sustained_frames
+
+        self._yaw_states: Dict[str, _SeatYawState] = {}
+        self.frame_id = 0
+        self._last_fps_ts = time.time()
+        self.fps_estimate = 0.0
+
+    # ---- geometry / signal computation -----------------------------------
+
+    @staticmethod
+    def _get_xy(keypoints, name: str) -> Optional[Tuple[float, float]]:
+        kp = keypoints.get(name)
+        if kp is None:
+            return None
+        return (kp[0], kp[1])
+
+    def _estimate_head_yaw(self, keypoints) -> Optional[float]:
+        """Eye-nose-ear triangulation, mapped to an approximate yaw angle."""
+        nose = self._get_xy(keypoints, "nose")
+        l_ear = self._get_xy(keypoints, "left_ear")
+        r_ear = self._get_xy(keypoints, "right_ear")
+        if nose is None or l_ear is None or r_ear is None:
+            return None
+
+        ear_mid_x = (l_ear[0] + r_ear[0]) / 2.0
+        inter_ear_dist = abs(l_ear[0] - r_ear[0])
+        if inter_ear_dist < 1e-3:
+            return None
+
+        offset_ratio = (nose[0] - ear_mid_x) / (inter_ear_dist / 2.0 + EPS)
+        offset_ratio = float(np.clip(offset_ratio, -3.0, 3.0))
+        yaw_deg = float(np.clip(offset_ratio * 90.0, -90.0, 90.0))
+        return yaw_deg
+
+    def _get_yaw_state(self, seat_id: str) -> _SeatYawState:
+        state = self._yaw_states.get(seat_id)
+        if state is None:
+            state = _SeatYawState()
+            self._yaw_states[seat_id] = state
+        return state
+
+    # ---- per-frame processing ----------------------------------------------
+
+    def process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, List[Dict[str, Any]]]:
+        """Runs the full pipeline on a single BGR frame. Returns (annotated_frame, records)."""
+        self.frame_id += 1
+        annotated = frame.copy()
+        records: List[Dict[str, Any]] = []
+
+        if self.detector.backend == PoseDetector.BACKEND_NONE:
+            self._draw_banner(annotated, "NO POSE MODEL AVAILABLE - ABSTAIN MODE")
+            return annotated, records
+
+        detections = self.detector.detect(frame)
+        det_payload = [{"bbox": d["bbox"], "conf": d.get("conf", 0.0)} for d in detections]
+
+        # 1) Seat anchoring / tracking (SeatAnchorTracker owns occlusion hold
+        #    + contention resolution; we no longer duplicate that logic here).
+        seat_assignments = self.seat_tracker.assign_seats(det_payload)
+
+        for assignment in seat_assignments:
+            seat_id = assignment["seat_id"]
+            det_idx = assignment.get("det_index")
+
+            if assignment["state"] in (STATE_LOST,):
+                continue
+
+            if det_idx is None:
+                # OCCLUDED_HOLD: no fresh detection this frame, carry state
+                # forward without evaluating anomalies against stale keypoints.
+                record = {
+                    "frame_id": self.frame_id, "seat_id": seat_id,
+                    "status": STATUS_ABSTAIN, "confidence": 0.0,
+                    "flag_reason": "OCCLUDED_HOLD",
+                }
+                records.append(record)
+                self._draw_overlay(annotated, seat_id, assignment["bbox"], record)
+                continue
+
+            det = detections[det_idx]
+            record = self._evaluate_seat(seat_id, assignment, det)
+            records.append(record)
+            self._draw_overlay(annotated, seat_id, det["bbox"], record)
+
+        return annotated, records
+
+    def _evaluate_seat(self, seat_id: str, assignment: Dict[str, Any], det: Dict[str, Any]) -> Dict[str, Any]:
+        bbox = det["bbox"]
+        conf = float(det.get("conf", 0.0))
+        keypoints = det.get("keypoints", {})
+        tier = assignment.get("tier", "A")
+
+        # 2) Calibrated abstention gate (CalibratedAbstentionGate owns the
+        #    visibility-score composite; we no longer duplicate that logic).
+        visibility = self.abstention_gate.evaluate_visibility(
+            seat_id=seat_id, bbox=bbox, keypoints=keypoints, tier=tier, conf=conf,
+        )
+        if visibility["suppress_alert"]:
+            self._get_yaw_state(seat_id).yaw_sustained_frames = 0
+            self.leakage_detector.reset_seat(seat_id)
+            return {
+                "frame_id": self.frame_id, "seat_id": seat_id, "status": STATUS_ABSTAIN,
+                "confidence": round(float(visibility["visibility_score"]), 3),
+                "flag_reason": visibility["reason"], "keypoints": keypoints,
+            }
+
+        # 3) Desk leakage (DeskLeakageDetector owns wrist/torso boundary
+        #    excursion + its own dwell-frame gate).
+        own_polygon = self.seat_tracker.seats[seat_id].polygon if seat_id in self.seat_tracker.seats else None
+        neighbor_polygons = self.seat_tracker.neighbor_polygons(seat_id)
+        leakage = self.leakage_detector.evaluate_leakage(
+            seat_id=seat_id, keypoints=keypoints, neighbor_polygons=neighbor_polygons, own_polygon=own_polygon,
         )
 
-    seats = load_seatmap(args.seatmap) if os.path.exists(args.seatmap) else []
-    if seats:
-        print(f"loaded {len(seats)} seats from {args.seatmap}")
-    else:
-        print(f"WARNING: seatmap not found at {args.seatmap} — events will have seat_id=null")
+        # 4) Head yaw anomaly, sustained-frame gated (kept local: it's not
+        #    duplicated by any of the other 7 modules).
+        yaw_state = self._get_yaw_state(seat_id)
+        yaw_deg = self._estimate_head_yaw(keypoints)
+        yaw_anomalous_this_frame = yaw_deg is not None and abs(yaw_deg) > self.yaw_threshold_deg
+        if yaw_deg is not None:
+            yaw_state.yaw_history.append(yaw_deg)
+        yaw_state.yaw_sustained_frames = (
+            yaw_state.yaw_sustained_frames + 1 if yaw_anomalous_this_frame else 0
+        )
+        yaw_flagged = yaw_state.yaw_sustained_frames >= self.yaw_sustained_frames
 
-    print("loading person detector (YOLO11-s, COCO)...")
-    person_model = YOLO(args.person_weights)
-    print(f"loading behavior detector ({args.behavior_weights})...")
-    behavior_model = YOLO(args.behavior_weights)
-
-    tracker = sv.ByteTrack()
-
-    cap = cv2.VideoCapture(args.video)
-    if not cap.isOpened():
-        raise SystemExit(f"Cannot open video: {args.video}")
-    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    print(f"input: {w}x{h} @ {fps:.1f}fps, {n_frames} frames")
-
-    writer = cv2.VideoWriter(
-        args.video_out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-
-    event_stream = []
-    review_candidates = []
-    # per seat -> per behavior -> deque of timestamps
-    seat_behavior_times = defaultdict(lambda: defaultdict(deque))
-
-    frame_idx = 0
-    t_start = time.time()
-
-    while cap.isOpened():
-        ok, frame = cap.read()
-        if not ok:
-            break
-        if args.max_frames and frame_idx >= args.max_frames:
-            break
-
-        ts = frame_idx / fps
-
-        # --- person detection + tracking ---
-        det = person_model.predict(
-            frame, classes=[PERSON_CLASS_ID], conf=DET_CONF_THRES, verbose=False)[0]
-        if len(det.boxes):
-            xyxy = det.boxes.xyxy.cpu().numpy()
-            confs = det.boxes.conf.cpu().numpy()
+        if leakage["is_leaking"]:
+            status = STATUS_LEAKAGE_ANOMALY
+            reason = f"{leakage['leakage_type']}:{leakage['target_seat_id']}"
+        elif yaw_flagged:
+            status = STATUS_LEAKAGE_ANOMALY
+            reason = REASON_HEAD_YAW_SUSTAINED
         else:
-            xyxy = np.empty((0, 4)); confs = np.empty((0,))
+            status = STATUS_NORMAL
+            reason = REASON_NONE
 
-        detections = sv.Detections(
-            xyxy=xyxy, confidence=confs,
-            class_id=np.zeros(len(xyxy), dtype=int))
-        tracked = tracker.update_with_detections(detections)
+        return {
+            "frame_id": self.frame_id, "seat_id": seat_id, "status": status,
+            "confidence": round(float(visibility["visibility_score"]), 3),
+            "flag_reason": reason, "keypoints": keypoints,
+        }
 
-        # --- behavior detection ---
-        bdet = behavior_model.predict(
-            frame, conf=BEHAVIOR_CONF_THRES, verbose=False)[0]
-        behavior_boxes = []
-        if len(bdet.boxes):
-            for b, c, k in zip(bdet.boxes.xyxy.cpu().numpy(),
-                               bdet.boxes.conf.cpu().numpy(),
-                               bdet.boxes.cls.cpu().numpy()):
-                behavior_boxes.append({
-                    "bbox": b, "conf": float(c),
-                    "behavior": BEHAVIOR_NAMES.get(int(k), f"cls_{int(k)}"),
-                })
+    # ---- rendering ----------------------------------------------------------
 
-        # --- associate behaviors to tracks by IoU ---
-        frame_events = []
-        for ti in range(len(tracked)):
-            tbbox = tracked.xyxy[ti]
-            track_id = int(tracked.tracker_id[ti])
-            seat_id, seat_frac = snap_to_seat(tbbox, seats) if seats else (None, 0.0)
+    def _draw_overlay(self, frame: np.ndarray, seat_id: str, bbox, record: Dict[str, Any]) -> None:
+        x1, y1, x2, y2 = [int(v) for v in bbox]
+        color = STATUS_COLORS.get(record["status"], (255, 255, 255))
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        label = f"{seat_id} | {record['status']}"
+        cv2.putText(frame, label, (x1, max(0, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+        if record["flag_reason"]:
+            cv2.putText(frame, record["flag_reason"], (x1, min(frame.shape[0] - 5, y2 + 18)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1, cv2.LINE_AA)
 
-            best, best_iou = None, 0.0
-            for bb in behavior_boxes:
-                if bb["behavior"] in ("person",):
-                    continue  # person class is covered by the person detector
-                iou = iou_xyxy(tbbox, bb["bbox"])
-                if iou > best_iou:
-                    best_iou, best = iou, bb
+    def _draw_banner(self, frame: np.ndarray, text: str) -> None:
+        cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
 
-            behavior = best["behavior"] if best_iou >= IOU_ASSOCIATE_THRES else None
-            behavior_conf = best["conf"] if behavior else None
+    # ---- FPS bookkeeping ------------------------------------------------
 
-            ev = {
-                "frame_idx": frame_idx,
-                "timestamp_s": round(ts, 3),
-                "track_id": track_id,
-                "seat_id": seat_id,
-                "behavior": behavior,
-                "behavior_conf": round(behavior_conf, 3) if behavior_conf else None,
-                "association_iou": round(best_iou, 3),
-            }
-            frame_events.append(ev)
-            event_stream.append(ev)
+    def _tick_fps(self) -> None:
+        now = time.time()
+        dt = now - self._last_fps_ts
+        self._last_fps_ts = now
+        if dt > 0:
+            inst = 1.0 / dt
+            self.fps_estimate = inst if not self.fps_estimate else (0.9 * self.fps_estimate + 0.1 * inst)
 
-            # --- sliding-window aggregation -> review_candidate ---
-            if seat_id and behavior in FLAGGED_BEHAVIORS:
-                dq = seat_behavior_times[seat_id][behavior]
-                dq.append(ts)
-                while dq and ts - dq[0] > WINDOW_SECONDS:
-                    dq.popleft()
-                if len(dq) == MIN_EVENTS_IN_WINDOW:  # fire once per crossing
-                    review_candidates.append({
-                        "timestamp_s": round(ts, 3),
-                        "seat_id": seat_id,
-                        "track_id": track_id,
-                        "trigger": behavior,
-                        "events_in_window": len(dq),
-                        "window_s": WINDOW_SECONDS,
-                        "note": "observable-event aggregate for human review; "
-                                "NOT a cheating determination",
-                    })
+    # ---- streaming entry point (CLI / offline video) ------------------------
 
-            # --- draw ---
-            x1, y1, x2, y2 = tbbox.astype(int)
-            color = (0, 255, 0) if behavior is None else (0, 165, 255)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            label = f"id{track_id}"
-            if seat_id:
-                label += f"@{seat_id}"
-            if behavior:
-                label += f" [{behavior}]"
-            cv2.putText(frame, label, (x1, max(0, y1 - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+    def run(
+        self, video_source: Any = 0, display: bool = False, jsonl_output_path: Optional[str] = None,
+    ) -> Generator[Tuple[np.ndarray, List[Dict[str, Any]]], None, None]:
+        cap = cv2.VideoCapture(video_source)
+        if not cap.isOpened():
+            raise RuntimeError(f"Unable to open video source: {video_source}")
 
-        for bb in behavior_boxes:
-            bx1, by1, bx2, by2 = bb["bbox"].astype(int)
-            cv2.rectangle(frame, (bx1, by1), (bx2, by2), (255, 0, 255), 1)
-            cv2.putText(frame, f"{bb['behavior']} {bb['conf']:.2f}",
-                        (bx1, max(0, by1 - 4)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 255), 1, cv2.LINE_AA)
+        jsonl_file = open(jsonl_output_path, "a") if jsonl_output_path else None
+        try:
+            while True:
+                ok, frame = cap.read()
+                if not ok:
+                    break
 
-        writer.write(frame)
-        frame_idx += 1
-        if frame_idx % 50 == 0:
-            print(f"  frame {frame_idx}/{n_frames}")
+                annotated, records = self.process_frame(frame)
+                self._tick_fps()
 
-    cap.release()
-    writer.release()
+                if jsonl_file is not None:
+                    for record in records:
+                        # keypoints are numpy-free tuples already, safe to serialize
+                        serializable = {k: v for k, v in record.items() if k != "keypoints"}
+                        jsonl_file.write(json.dumps(serializable) + "\n")
+                    jsonl_file.flush()
 
-    elapsed = time.time() - t_start
-    fps_out = frame_idx / elapsed if elapsed > 0 else 0
+                if display:
+                    cv2.putText(annotated, f"FPS: {self.fps_estimate:.1f}", (10, annotated.shape[0] - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+                    cv2.imshow("VIGIL Behavior Pipeline", annotated)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
 
-    # per-seat behavior summary
-    summary = {}
-    for seat_id, behaviors in seat_behavior_times.items():
-        summary[seat_id] = {b: len(times) for b, times in behaviors.items()}
+                yield annotated, records
+        finally:
+            cap.release()
+            if jsonl_file is not None:
+                jsonl_file.close()
+            if display:
+                cv2.destroyAllWindows()
 
-    with open(args.json_out, "w") as f:
-        json.dump({
-            "source_video": args.video,
-            "behavior_weights": args.behavior_weights,
-            "fps": fps,
-            "total_frames": frame_idx,
-            "pipeline_fps_measured": round(fps_out, 2),
-            "window_rule": {
-                "window_s": WINDOW_SECONDS,
-                "min_events": MIN_EVENTS_IN_WINDOW,
-                "flagged_behaviors": sorted(FLAGGED_BEHAVIORS),
-            },
-            "review_candidates": review_candidates,
-            "seat_behavior_summary": summary,
-            "events": event_stream,
-            "caveats": [
-                "Behavior model trained on SCB classroom images, not exam-hall CCTV.",
-                "review_candidate is an observable-event aggregate for human review, "
-                "not a cheating determination.",
-                "phone_visible/paper_exchange/standing not detectable (0 training instances).",
-            ],
-        }, f, indent=2)
+    def reset(self) -> None:
+        self._yaw_states.clear()
+        self.seat_tracker.reset()
+        self.frame_id = 0
 
-    print(f"\ndone: {frame_idx} frames in {elapsed:.1f}s ({fps_out:.1f} fps)")
-    print(f"behavior events: {sum(1 for e in event_stream if e['behavior'])}")
-    print(f"review_candidates: {len(review_candidates)}")
-    for rc in review_candidates:
-        print(f"  t={rc['timestamp_s']}s seat={rc['seat_id']} "
-              f"{rc['trigger']} x{rc['events_in_window']}")
-    print(f"wrote {args.video_out}")
-    print(f"wrote {args.json_out}")
+
+# --------------------------------------------------------------------------
+# stream_events(): the async bridge main.py's live pipeline worker imports.
+#
+# This is what was MISSING from the original 8 files. main.py expects:
+#     from backend.behavior_pipeline import stream_events
+#     async for event in stream_events():
+#         ...
+# where each event is the raw-observation schema consumed by
+# SeatMemoryEngine.process_frame(seat_id, keypoints, timestamp) upstream of
+# CheatSyncEngine / MultiEvidenceRiskEngine. This function owns exactly that
+# hand-off: it runs BehaviorPipeline against a live camera/RTSP source and
+# re-shapes each per-seat record into that event schema.
+#
+# NOTE: this pipeline does not itself run a hand-signal/leaning-forward
+# behaviour classifier (that's the separate vigil_yolo_*.pt model visible in
+# your repo tree, trained via scripts/train_vigil_yolo.py) -- yolo.class is
+# left as None/0.0 here. Plug that classifier's output in where marked below
+# once you want main.py's yolo_class fusion term to carry real signal.
+# --------------------------------------------------------------------------
+
+async def stream_events(
+    video_source: Any = 0,
+    seatmap_path: str = DEFAULT_SEATMAP_PATH,
+    model_path: str = DEFAULT_MODEL_PATH,
+    fps_limit: Optional[float] = 30.0,
+):
+    pipeline = BehaviorPipeline(seatmap_path=seatmap_path, model_path=model_path)
+    cap = await asyncio.to_thread(cv2.VideoCapture, video_source)
+    if not cap.isOpened():
+        raise RuntimeError(f"Unable to open video source: {video_source}")
+
+    frame_interval = (1.0 / fps_limit) if fps_limit else 0.0
+    try:
+        while True:
+            loop_start = time.time()
+            ok, frame = await asyncio.to_thread(cap.read)
+            if not ok:
+                break
+
+            annotated, records = await asyncio.to_thread(pipeline.process_frame, frame)
+            timestamp = time.time()
+
+            for record in records:
+                if record["status"] == STATUS_ABSTAIN:
+                    # Still surface the seat with empty keypoints so
+                    # SeatMemoryEngine can register it as INSUFFICIENT
+                    # rather than silently dropping the seat.
+                    keypoints = {}
+                else:
+                    keypoints = record.get("keypoints", {})
+
+                yield {
+                    "seat_id": record["seat_id"],
+                    "timestamp": timestamp,
+                    "keypoints": keypoints,
+                    # TODO: wire in vigil_yolo behaviour-classifier output here.
+                    "yolo": {"class": None, "conf": 0.0},
+                }
+
+            if frame_interval:
+                elapsed = time.time() - loop_start
+                remaining = frame_interval - elapsed
+                if remaining > 0:
+                    await asyncio.sleep(remaining)
+    finally:
+        await asyncio.to_thread(cap.release)
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="VIGIL real-time behaviour monitoring pipeline")
+    parser.add_argument("--source", default=0, help="Video source: webcam index, file path, or RTSP URL")
+    parser.add_argument("--seatmap", default=DEFAULT_SEATMAP_PATH, help="Path to seatmap.json")
+    parser.add_argument("--model", default=DEFAULT_MODEL_PATH, help="Path/name of YOLOv8n-pose weights")
+    parser.add_argument("--display", action="store_true", help="Show annotated stream in a window")
+    parser.add_argument("--out", default=None, help="Path to append per-frame JSONL output")
+    args = parser.parse_args()
+
+    try:
+        source: Any = int(args.source)
+    except (TypeError, ValueError):
+        source = args.source
+
+    pipeline = BehaviorPipeline(seatmap_path=args.seatmap, model_path=args.model)
+    for _annotated_frame, _records in pipeline.run(source, display=args.display, jsonl_output_path=args.out):
+        pass
