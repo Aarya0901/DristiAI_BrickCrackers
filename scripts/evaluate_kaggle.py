@@ -98,7 +98,7 @@ def evaluate_video(video_path: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", required=True, help="Path to Kaggle videos")
+    parser.add_argument("--dataset_dir", default="/kaggle/input/datasets/rimmajeed/examcheating-multiv-video-based-dataset", help="Path to Kaggle videos")
     parser.add_argument("--out", default="evaluation_report.json")
     args = parser.parse_args()
     
