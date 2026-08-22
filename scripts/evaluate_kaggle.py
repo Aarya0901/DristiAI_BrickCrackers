@@ -122,8 +122,9 @@ def evaluate_video(video_path: str, pose_model, behavior_model):
             for i in range(len(boxes)):
                 cls = int(boxes.cls[i])
                 conf = float(boxes.conf[i])
-                # Class 1: leaning_forward, Class 2: hand_signal
-                if cls in [1, 2] and conf > 0.60:
+                # Lowering confidence threshold from 0.60 to 0.30 to account for domain shift
+                # (Models trained on one dataset often have lower confidence on new datasets)
+                if cls in [1, 2] and conf > 0.30:
                     raw_yolo_flags += 1
                     frame_raw_flags += 1
                     
