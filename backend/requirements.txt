@@ -1,0 +1,17 @@
+# Vigil Backend — Python dependencies
+# Install into backend/.venv:
+#   backend/.venv/Scripts/pip.exe install -r backend/requirements.txt
+
+ultralytics>=8.3.0       # YOLO11 (AGPL-3.0, prototyping only)
+rtmlib>=0.0.16            # RTMPose-m via ONNX (Apache-2.0); 0.0.16 is latest PyPI release
+supervision>=0.22.0       # ByteTrack (MIT)
+shapely>=2.0.0            # seat polygon ops
+opencv-python>=4.8.0      # cv2 video IO
+torch>=2.0.0              # PyTorch
+numpy>=1.24.0
+PyYAML>=6.0
+tqdm>=4.65.0
+Pillow>=10.0.0
+
+# Optional: gaze estimation
+# gazelle @ git+https://github.com/fkryan/gazelle

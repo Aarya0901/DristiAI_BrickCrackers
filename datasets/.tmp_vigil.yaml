@@ -1,0 +1,12 @@
+names:
+  0: person
+  1: looking_left
+  2: leaning_forward
+  3: talking
+  4: hand_signal
+  5: normal_exam_activity
+nc: 6
+path: /data/datasets/vigil_exam
+test: images/test
+train: images/train
+val: images/val

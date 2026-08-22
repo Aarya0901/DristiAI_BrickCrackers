@@ -1,0 +1,17 @@
+{
+  "seed": 42,
+  "splits": {
+    "train": 7006,
+    "test": 1553,
+    "val": 1579
+  },
+  "class_histogram": {
+    "talking": 5392,
+    "hand_signal": 13453,
+    "normal_exam_activity": 33919,
+    "looking_left": 11156,
+    "leaning_forward": 4962
+  },
+  "session_groups": 455,
+  "note": "Session-grouped split; frames from same session stay together."
+}

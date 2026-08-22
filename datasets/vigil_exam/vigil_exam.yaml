@@ -1,0 +1,15 @@
+# Vigil Exam-Hall Behavior Dataset
+# 6 classes: 5 learned from SCB + person from pretrained COCO weights.
+# Ghost classes from the old 13-class YAML removed (0 instances).
+path: datasets/vigil_exam
+train: images/train
+val: images/val
+test: images/test
+nc: 6
+names:
+  0: person
+  1: looking_left
+  2: leaning_forward
+  3: talking
+  4: hand_signal
+  5: normal_exam_activity

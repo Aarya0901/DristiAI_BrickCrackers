@@ -1,0 +1,15 @@
+LICENSE STATUS: PENDING VERIFICATION
+
+The Online Exam Cheating Detection dataset (Roboflow Universe:
+fraud-detection-using-cnn/online-exam-cheating-detection) license has NOT been confirmed.
+
+- Check the Roboflow Universe project page for license information.
+- Verify with the dataset creator.
+- Do NOT redistribute without explicit permission.
+- For hackathon use: check if the dataset license permits research/prototyping.
+
+Next steps:
+1. Visit: https://universe.roboflow.com/fraud-detection-using-cnn/online-exam-cheating-detection
+2. Check dataset license and terms of use
+3. If bounding boxes are available, export in YOLO format
+4. If classification-only, keep in separate classification directory

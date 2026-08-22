@@ -1,0 +1,9 @@
+CC0 1.0 Universal — Public Domain Dedication
+
+The CCTV Exam Monitor Dataset (Kaggle: cctvdataset/cctv-exam-monitor-dataset)
+by Jonathan Michael Campbell is dedicated to the public domain under CC0.
+
+To the extent possible under law, the author has waived all copyright and
+related or neighboring rights to this dataset.
+
+Full legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode

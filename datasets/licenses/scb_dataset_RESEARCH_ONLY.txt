@@ -1,0 +1,23 @@
+SCB-Dataset5 — Research / Academic Use Only
+
+The SCB-Dataset5 (Whiffe/SCB-dataset, GitHub/HuggingFace) is provided for
+research and academic use. Commercial use requires written permission from
+the dataset authors.
+
+Usage restrictions:
+- Academic and research use: Permitted
+- Commercial use: NOT permitted without written permission
+- Redistribution: NOT permitted without written permission
+- Attribution: Required — cite the SCB-Dataset paper
+
+Repository: https://github.com/Whiffe/SCB-dataset
+HuggingFace: https://huggingface.co/datasets/Whiffe/SCB-dataset
+
+For the Google Girl Hackathon:
+- Academic/research use at the hackathon level is consistent with the SCB license
+- Do NOT redistribute the dataset as part of any deployment
+- If the project advances to production, obtain written permission or replace SCB data
+
+Required citation:
+  Whiffe et al., "SCB-Dataset: Student Classroom Behavior Dataset",
+  GitHub: Whiffe/SCB-dataset.

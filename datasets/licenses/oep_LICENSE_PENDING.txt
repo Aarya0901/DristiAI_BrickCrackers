@@ -1,0 +1,14 @@
+LICENSE STATUS: PENDING VERIFICATION
+
+The MSU Online Exam Proctoring (OEP) Dataset (Kaggle: raajanwankhade/oep-dataset)
+license has NOT been confirmed.
+
+- Treat as research-only until usage terms are confirmed with the dataset authors.
+- Do NOT redistribute without explicit permission.
+- For the Google Girl Hackathon context: verify with organizers whether this dataset
+  may be used for prototyping purposes.
+
+Next steps:
+1. Contact dataset authors at MSU CVLab for license clarification
+2. Check Kaggle dataset page for license information
+3. If license is incompatible, remove OEP data from the Vigil dataset

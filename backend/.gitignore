@@ -14,3 +14,5 @@ out_phase*_events.json
 test_video_raw.mp4
 out_phase2_preview_*.jpg
 data/*.zip
+out_phase4_*
+runs/

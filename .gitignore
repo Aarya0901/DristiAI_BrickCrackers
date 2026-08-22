@@ -31,3 +31,42 @@ next-env.d.ts
 # test artifacts
 test-results/
 playwright-report/
+
+# ============================================================================
+# DATASETS — do NOT commit large files, private footage, or downloaded weights
+# ============================================================================
+datasets/raw/
+datasets/interim/
+datasets/vigil_exam/images/
+datasets/vigil_exam/labels/
+datasets/vigil_exam/videos/
+datasets/vigil_exam/metadata/dataset_manifest.csv
+
+# Keep config & docs commit-able
+!datasets/vigil_exam/vigil_exam.yaml
+!datasets/vigil_exam/README.md
+!datasets/vigil_exam/CLASS_MAPPING.md
+!datasets/vigil_exam/SPLIT_REPORT.md
+!datasets/vigil_exam/QUALITY_REPORT.md
+!datasets/vigil_exam/metadata/.gitkeep
+!datasets/DATASET_SOURCES.md
+!datasets/licenses/
+!datasets/raw/.gitkeep
+!datasets/interim/extracted_frames/.gitkeep
+!datasets/interim/converted_labels/.gitkeep
+!datasets/interim/duplicate_review/.gitkeep
+
+# Dataset archives
+*.zip
+!*.zip.unused
+datasets/**/*.zip
+datasets/**/*.tar
+datasets/**/*.tar.gz
+datasets/**/*.tgz
+
+# Downloaded model weights (already covered by backend/.gitignore *.pt)
+# Extra safety for dataset directory
+datasets/**/*.pt
+datasets/**/*.onnx
+datasets/**/*.pth
+datasets/**/*.weights
