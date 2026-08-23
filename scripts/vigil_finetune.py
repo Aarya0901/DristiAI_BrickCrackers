@@ -321,6 +321,7 @@ def run_stage_a(
         lrf=STAGE_A_LRF,
         cos_lr=True,
         patience=patience,
+        time=1.0,          # Hard limit: stop and save best weights after 1.0 hour
         fliplr=FLIPLR,
         # Standard augmentation
         hsv_h=0.015,
