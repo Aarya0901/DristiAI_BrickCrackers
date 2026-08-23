@@ -36,6 +36,7 @@ playwright-report/
 # ============================================================================
 # DATASETS — do NOT commit large files, private footage, or downloaded weights
 # ============================================================================
+datasets/*
 datasets/raw/
 datasets/interim/
 datasets/vigil_exam/images/
