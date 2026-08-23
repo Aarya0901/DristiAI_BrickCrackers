@@ -421,6 +421,8 @@ def main() -> None:
     )
     parser.add_argument("--root", default="c:/DristiAI_BrickCrackers",
                         help="Project root (default: c:/DristiAI_BrickCrackers).")
+    parser.add_argument("--dataset-dir", default=None,
+                        help="Override for the datasets/vigil_exam_v2 directory (useful for Kaggle).")
     parser.add_argument("--stage", choices=["a", "b", "both"], default="a",
                         help="Stage to run: 'a', 'b', or 'both' (default: a).")
     parser.add_argument("--checkpoint", default=None,
@@ -445,7 +447,7 @@ def main() -> None:
     root = Path(args.root).resolve()
 
     # --- path layout (mirrors config.py conventions) -----------------------
-    merged_dir      = root / "datasets" / "vigil_exam_v2"
+    merged_dir      = Path(args.dataset_dir).resolve() if args.dataset_dir else root / "datasets" / "vigil_exam_v2"
     staging_dir     = merged_dir / "_staging"
     frame_manifest  = staging_dir / "phase3_frames" / "frame_manifest.csv"
     phase3_images   = staging_dir / "phase3_frames" / "images"
