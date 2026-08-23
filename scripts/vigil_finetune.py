@@ -489,7 +489,7 @@ def main() -> None:
 
     if args.stage in ("a", "both"):
         print("\n[Stage A] Building oversampled training image list ...")
-        train_txt_a = merged_dir / "train_oversampled.txt"
+        train_txt_a = root / "train_oversampled.txt"
         entry_counts = build_oversampled_list(
             train_images, train_labels, frame_manifest, train_txt_a, seed=args.seed,
         )
@@ -509,7 +509,7 @@ def main() -> None:
             print(f"  {'_unclassified':20s} {unc:>14d}  {unc:>9d}  1.0x")
         print(f"  {'TOTAL':20s} {'':14s}  {sum(entry_counts.values()):>9d}")
 
-        data_yaml_a = merged_dir / "data_stageA.yaml"
+        data_yaml_a = root / "data_stageA.yaml"
         _write_stage_yaml(data_yaml_a, train_txt_a, val_images, merged_dir)
 
         a_weights = run_stage_a(
@@ -540,12 +540,12 @@ def main() -> None:
             sys.exit(1)
 
         print("\n[Stage B] Building video-derived (verified) training list ...")
-        train_txt_b = merged_dir / "train_stageB.txt"
+        train_txt_b = root / "train_stageB.txt"
         n_b = build_stage_b_list(
             phase3_images, frame_manifest, train_txt_b, seed=args.seed,
         )
 
-        data_yaml_b = merged_dir / "data_stageB.yaml"
+        data_yaml_b = root / "data_stageB.yaml"
         _write_stage_yaml(data_yaml_b, train_txt_b, val_images, merged_dir)
 
         run_stage_b(
