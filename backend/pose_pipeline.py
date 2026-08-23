@@ -14,6 +14,9 @@ import cv2
 import numpy as np
 from rtmlib import RTMPose, draw_skeleton
 from ultralytics import YOLO
+from pathlib import Path
+
+BACKEND_DIR = Path(__file__).resolve().parent
 
 VIDEO_IN = "test_video_raw.mp4"
 VIDEO_OUT = "out_phase1_skeleton.mp4"
@@ -31,7 +34,8 @@ DEVICE = "cuda"
 
 def main():
     print("loading YOLO11-s (person detector, AGPL-3.0)...")
-    yolo = YOLO("yolo11s.pt")
+    yolo_weights = str(BACKEND_DIR / "yolo11s.pt") if (BACKEND_DIR / "yolo11s.pt").exists() else "yolo11s.pt"
+    yolo = YOLO(yolo_weights)
 
     print("loading RTMPose-m (rtmlib/ONNX, Apache-2.0)...")
     pose_model = RTMPose(
