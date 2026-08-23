@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from ultralytics import YOLO
 
 # Path inside Kaggle after adding the dataset as input
-DATASET_ROOT = "/kaggle/input/vigil-exam-v2"
+DATASET_ROOT = "/kaggle/input/datasets/aaryashah0901/vigil-exam-v2"
 
 # ── COCO-17 skeleton connectivity (pairs of keypoint indices) ──────────────
 SKELETON = [
