@@ -101,69 +101,80 @@ def draw_pose(frame: np.ndarray, results) -> np.ndarray:
 # ============================================================
 # CELL 4 — Sample N videos and pick one frame per video
 # ============================================================
-def find_dataset_root(hint: str = DATASET_ROOT) -> str:
+def find_all_media(base: str = "/kaggle/input"):
     """
-    Auto-discovers the dataset root by scanning /kaggle/input for video files.
-    Prints the tree of /kaggle/input so the user can always see the real layout.
+    Scans /kaggle/input for ALL media (videos AND images).
+    Prints the full /kaggle/input directory tree (3 levels deep)
+    so the user can see exactly what Kaggle mounted.
+    Returns (list_of_videos, list_of_images).
     """
-    kaggle_input = "/kaggle/input"
-    print(f"\n📂 Scanning {kaggle_input} for videos ...")
-
-    # Print the top two levels of /kaggle/input for transparency
-    for root, dirs, files in os.walk(kaggle_input):
-        depth = root.replace(kaggle_input, "").count(os.sep)
-        if depth >= 2:
-            dirs[:] = []   # don't recurse deeper than 2 levels for printing
+    print(f"\n📂 Full directory tree under {base}:")
+    for root, dirs, files in os.walk(base):
+        depth = root.replace(base, "").count(os.sep)
+        if depth >= 3:
+            dirs[:] = []
             continue
         indent = "  " * depth
-        print(f"{indent}{os.path.basename(root)}/")
+        print(f"{indent}{os.path.basename(root) or base}/")
         subindent = "  " * (depth + 1)
-        for f in files[:5]:   # show at most 5 files per folder
+        for f in sorted(files)[:8]:
             print(f"{subindent}{f}")
+        if len(files) > 8:
+            print(f"{subindent}... (+{len(files)-8} more)")
 
-    # Now find all videos anywhere under /kaggle/input
-    video_exts = ["*.mp4", "*.avi", "*.mov", "*.mkv"]
-    all_videos = []
-    for ext in video_exts:
-        all_videos.extend(
-            glob.glob(os.path.join(kaggle_input, "**", ext), recursive=True)
-        )
+    # ── Videos ────────────────────────────────────────────────
+    videos = []
+    for ext in ("*.mp4", "*.avi", "*.mov", "*.mkv"):
+        videos.extend(glob.glob(os.path.join(base, "**", ext), recursive=True))
 
-    if not all_videos:
-        raise FileNotFoundError(
-            f"\n❌ No videos found anywhere under {kaggle_input}.\n"
-            "Make sure you added the dataset via: File → Add Input on Kaggle."
-        )
+    # ── Images ────────────────────────────────────────────────
+    images = []
+    for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp"):
+        images.extend(glob.glob(os.path.join(base, "**", ext), recursive=True))
 
-    # Return the common ancestor directory of the found videos
-    common = os.path.commonpath([os.path.dirname(v) for v in all_videos])
-    print(f"\n✅ Found {len(all_videos)} videos. Using root: {common}")
-    return common, all_videos
+    print(f"\n✅ Found: {len(videos)} videos, {len(images)} images")
+    return videos, images
 
 
 def sample_frames(dataset_root: str, n_videos: int = 8,
                   frame_offset: float = 0.3) -> list:
     """
-    Collect one representative frame from `n_videos` randomly chosen
-    videos in the dataset.  `frame_offset` controls which fraction
-    through the video we sample (0.3 = 30% of the way in).
+    Collects n_videos representative frames.
+    Works for both video files AND image datasets (YOLO layout).
     Returns a list of (filename, BGR_frame) tuples.
     """
-    _, all_videos = find_dataset_root(dataset_root)
-
-    random.seed(42)
-    chosen = random.sample(all_videos, min(n_videos, len(all_videos)))
+    videos, images = find_all_media()
 
     samples = []
-    for path in chosen:
-        cap = cv2.VideoCapture(path)
-        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        target_frame = max(0, int(total * frame_offset))
-        cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
-        ok, frame = cap.read()
-        cap.release()
-        if ok and frame is not None:
-            samples.append((os.path.basename(path), frame))
+
+    if videos:
+        print(f"\n🎞  Video mode — sampling {min(n_videos, len(videos))} videos")
+        random.seed(42)
+        chosen = random.sample(videos, min(n_videos, len(videos)))
+        for path in chosen:
+            cap = cv2.VideoCapture(path)
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            target_frame = max(0, int(total * frame_offset))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            ok, frame = cap.read()
+            cap.release()
+            if ok and frame is not None:
+                samples.append((os.path.basename(path), frame))
+
+    elif images:
+        print(f"\n🖼  Image mode — sampling {min(n_videos, len(images))} images")
+        random.seed(42)
+        chosen = random.sample(images, min(n_videos, len(images)))
+        for path in chosen:
+            frame = cv2.imread(path)
+            if frame is not None:
+                samples.append((os.path.basename(path), frame))
+
+    else:
+        raise FileNotFoundError(
+            "❌ No videos or images found anywhere under /kaggle/input.\n"
+            "Make sure you added the dataset via: File → Add Input on Kaggle."
+        )
 
     return samples
 
