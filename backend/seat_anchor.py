@@ -1,9 +1,12 @@
 """backend/seat_anchor.py — SeatAnchorTracker: static-polygon seat association.
 Matches person detections to predefined desk polygons via IoA + centroid-in-
-polygon tests, greedy bipartite assignment, contention flagging, occlusion hold."""
+polygon tests, greedy bipartite assignment, contention flagging, occlusion hold.
+Also provides auto_generate_seatmap to dynamically create seats from initial frames.
+"""
 from __future__ import annotations
+
 import json
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 
 try:
@@ -96,6 +99,102 @@ def _point_in_polygon(point, poly: np.ndarray) -> bool:
     return inside
 
 
+def auto_generate_seatmap(
+    bboxes: Sequence[Sequence[float]],
+    frame_shape: Optional[Tuple[int, int]] = None,
+    padding_ratio: float = 0.15,
+    neighbor_radius: float = 350.0,
+) -> Dict[str, Any]:
+    """Auto-generates a seatmap dictionary from a list of detected person bounding boxes.
+
+    - bboxes: list of [x1, y1, x2, y2]
+    - frame_shape: optional (height, width) to clamp coordinates
+    - padding_ratio: expansion ratio around the person's bbox to represent their desk
+    - neighbor_radius: pixel distance between seat centroids to link as neighbors
+    """
+    if not bboxes:
+        return {"seats": []}
+
+    H = float(frame_shape[0]) if frame_shape is not None else float("inf")
+    W = float(frame_shape[1]) if frame_shape is not None else float("inf")
+
+    boxes_with_info = []
+    for bbox in bboxes:
+        x1, y1, x2, y2 = [float(v) for v in bbox]
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        w = max(1.0, x2 - x1)
+        h = max(1.0, y2 - y1)
+        boxes_with_info.append({"bbox": (x1, y1, x2, y2), "cx": cx, "cy": cy, "w": w, "h": h})
+
+    # Group into rows by vertical center Y
+    avg_h = max(10.0, float(np.mean([b["h"] for b in boxes_with_info])))
+    row_threshold = avg_h * 0.6
+
+    sorted_by_y = sorted(boxes_with_info, key=lambda b: b["cy"])
+    rows: List[List[Dict[str, Any]]] = []
+    for b in sorted_by_y:
+        assigned_row = False
+        for r in rows:
+            row_mean_y = float(np.mean([item["cy"] for item in r]))
+            if abs(b["cy"] - row_mean_y) <= row_threshold:
+                r.append(b)
+                assigned_row = True
+                break
+        if not assigned_row:
+            rows.append([b])
+
+    # Sort rows top-to-bottom
+    rows.sort(key=lambda r: float(np.mean([item["cy"] for item in r])))
+
+    row_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    seats_list = []
+
+    for r_idx, r in enumerate(rows):
+        r.sort(key=lambda item: item["cx"])
+        row_letter = row_letters[r_idx % len(row_letters)]
+        for c_idx, item in enumerate(r):
+            seat_id = f"{row_letter}{c_idx + 1}"
+            x1, y1, x2, y2 = item["bbox"]
+            w, h = item["w"], item["h"]
+
+            # Expand bbox to define seat/desk footprint
+            px1 = max(0.0, x1 - w * padding_ratio)
+            py1 = max(0.0, y1 - h * padding_ratio)
+            px2 = min(W, x2 + w * padding_ratio)
+            py2 = min(H, y2 + h * padding_ratio)
+
+            polygon = [
+                [round(px1, 1), round(py1, 1)],
+                [round(px2, 1), round(py1, 1)],
+                [round(px2, 1), round(py2, 1)],
+                [round(px1, 1), round(py2, 1)],
+            ]
+
+            item["seat_id"] = seat_id
+            item["polygon"] = polygon
+            item["tier"] = row_letter
+
+    all_items = [item for r in rows for item in r]
+    for item in all_items:
+        neighbors = []
+        for other in all_items:
+            if item["seat_id"] == other["seat_id"]:
+                continue
+            dist = float(np.hypot(item["cx"] - other["cx"], item["cy"] - other["cy"]))
+            if dist <= neighbor_radius:
+                neighbors.append(other["seat_id"])
+
+        seats_list.append({
+            "seat_id": item["seat_id"],
+            "tier": item["tier"],
+            "polygon": item["polygon"],
+            "neighbors": neighbors,
+        })
+
+    return {"seats": seats_list}
+
+
 class _SeatDef:
     __slots__ = ("seat_id", "polygon", "tier", "bbox", "centroid", "area", "neighbors")
 
@@ -122,21 +221,24 @@ class _TrackState:
 
 
 class SeatAnchorTracker:
-    def __init__(self, seatmap_path: str = "backend/seatmap.json", ioa_threshold: float = IOA_THRESHOLD,
+    def __init__(self, seatmap: Union[str, Dict[str, Any], Any] = "backend/seatmap.json", ioa_threshold: float = IOA_THRESHOLD,
                  occlusion_hold_frames: int = OCCLUSION_HOLD_FRAMES) -> None:
         self.ioa_threshold = ioa_threshold
         self.occlusion_hold_frames = occlusion_hold_frames
         self.seats: Dict[str, _SeatDef] = {}
-        self._load_seatmap(seatmap_path)
+        self._load_seatmap(seatmap)
         self._tracks: Dict[str, _TrackState] = {}
         self._next_track_id = 1
 
-    def _load_seatmap(self, seatmap_path: str) -> None:
-        try:
-            with open(seatmap_path, "r") as f:
-                data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            data = {"seats": []}
+    def _load_seatmap(self, seatmap: Union[str, Dict[str, Any], Any]) -> None:
+        if isinstance(seatmap, dict):
+            data = seatmap
+        else:
+            try:
+                with open(str(seatmap), "r") as f:
+                    data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError, TypeError, OSError):
+                data = {"seats": []}
         for seat in data.get("seats", []):
             seat_id = seat["seat_id"]
             polygon = seat.get("polygon", [])
